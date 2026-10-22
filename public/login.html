@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}} — sign in</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body class="center">
+<form class="login" method="post" action="/login">
+  <h1>{{TITLE}}</h1>
+  <p class="muted">Sign in with the passphrase.</p>
+  <label for="passphrase">Passphrase</label>
+  <input id="passphrase" name="passphrase" type="password" autocomplete="current-password" autofocus required>
+  <input type="hidden" name="next" value="{{NEXT}}">
+  <button class="btn" type="submit">Sign in</button>
+  <div class="msg" id="msg">{{MESSAGE}}</div>
+</form>
+</body>
+</html>

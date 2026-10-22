@@ -1,0 +1,46 @@
+# Deletes the Fly app named in app.json (<name>-dan), with everything on
+# it, so a trial copy stops costing. Run by hand from the Actions tab
+# ("Remove the Fly app"), typing the app's Fly name to confirm.
+# Never run it on an app that holds Dan's records unless he asked for that.
+name: Remove the Fly app
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type the Fly app's name (<name in app.json>-dan) to confirm"
+        required: true
+
+jobs:
+  remove:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Read the app's name and check the confirmation
+        env:
+          CONFIRM: ${{ inputs.confirm }}
+        run: |
+          app="$(jq -r .name app.json)-dan"
+          echo "APP=$app" >> "$GITHUB_ENV"
+          if [ "$CONFIRM" != "$app" ]; then
+            echo "::error::The confirmation \"$CONFIRM\" is not the app's name, $app. Nothing removed."
+            exit 1
+          fi
+          [ -n "$FLY_API_TOKEN" ] || { echo "::error::Missing repository secret FLY_API_TOKEN. Nothing removed."; exit 1; }
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Remove the app
+        run: |
+          if flyctl status --app "$APP" >/dev/null 2>&1; then
+            flyctl apps destroy "$APP" --yes
+            echo "App $APP removed."
+          else
+            echo "App $APP does not exist; nothing to remove."
+          fi
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "https://$APP.fly.dev/alive" || true)
+          echo "https://$APP.fly.dev/alive now answers: ${code:-nothing}"

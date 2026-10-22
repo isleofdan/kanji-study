@@ -1,0 +1,106 @@
+/* One stylesheet for every screen. It reads at 412×915 (a phone) and at
+   1280×800 or wider (a computer): one centered column, text no smaller than
+   16 px, buttons full width on a phone. Light or dark follows the device. */
+
+:root {
+  color-scheme: light dark;
+  --bg: #fafaf8;
+  --fg: #1d1d1b;
+  --muted: #66665f;
+  --line: #d9d9d2;
+  --card: #ffffff;
+  --accent: #2f6f4f;
+  --accent-fg: #ffffff;
+  --bad: #b3261e;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161615;
+    --fg: #ecece6;
+    --muted: #a3a39a;
+    --line: #34342f;
+    --card: #1f1f1d;
+    --accent: #6fbf8f;
+    --accent-fg: #0f1a14;
+    --bad: #ff8a80;
+  }
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 17px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+main {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+
+header.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+header.bar .name { font-weight: 600; text-decoration: none; color: var(--fg); }
+header.bar nav { display: flex; gap: 16px; }
+header.bar nav a { color: var(--accent); text-decoration: none; padding: 6px 0; }
+
+h1 { font-size: 26px; line-height: 1.25; margin: 8px 0 16px; }
+h2 { font-size: 19px; margin: 28px 0 8px; }
+p { margin: 0 0 12px; }
+.muted { color: var(--muted); }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+  margin: 0 0 16px;
+  overflow-wrap: anywhere;
+}
+.mono { font-family: ui-monospace, Menlo, Consolas, "DejaVu Sans Mono", monospace; font-size: 15px; }
+
+/* The sign-in page. */
+body.center { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+form.login { width: 100%; max-width: 360px; padding: 24px 16px; }
+form.login h1 { margin-bottom: 4px; }
+label { display: block; font-size: 15px; color: var(--muted); margin: 20px 0 6px; }
+input[type=password], input[type=text] {
+  width: 100%;
+  padding: 13px 12px;
+  font-size: 17px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--fg);
+}
+.btn {
+  display: block;
+  width: 100%;
+  margin-top: 20px;
+  min-height: 50px;
+  font-size: 17px;
+  font-weight: 600;
+  border: 0;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  cursor: pointer;
+}
+.msg { color: var(--bad); min-height: 1.5em; margin-top: 12px; }
+
+@media (min-width: 900px) {
+  main { padding-top: 40px; }
+  h1 { font-size: 32px; }
+  .btn.inline { display: inline-block; width: auto; padding: 0 28px; }
+}
