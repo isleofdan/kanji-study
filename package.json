@@ -1,0 +1,23 @@
+{
+  "name": "kanji-study",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Dan's kanji catch and reference, made from isleofdan/starting-kit. Its name and title live in app.json, nowhere else.",
+  "main": "server.js",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "dev": "COOKIE_INSECURE=1 node server.js",
+    "test": "node --test test/*.test.js",
+    "screenshots": "node scripts/screenshots.mjs",
+    "check": "node scripts/check.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.56.1"
+  },
+  "dependencies": {
+    "better-sqlite3": "^13.0.3"
+  }
+}

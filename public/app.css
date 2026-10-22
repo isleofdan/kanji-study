@@ -1,0 +1,177 @@
+/* One stylesheet for every screen. It reads at 412×915 (a phone) and at
+   1280×800 or wider (a computer): one centered column, text no smaller than
+   16 px, buttons full width on a phone. Light or dark follows the device. */
+
+:root {
+  color-scheme: light dark;
+  --bg: #fafaf8;
+  --fg: #1d1d1b;
+  --muted: #66665f;
+  --line: #d9d9d2;
+  --card: #ffffff;
+  --accent: #2f6f4f;
+  --accent-fg: #ffffff;
+  --bad: #b3261e;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #161615;
+    --fg: #ecece6;
+    --muted: #a3a39a;
+    --line: #34342f;
+    --card: #1f1f1d;
+    --accent: #6fbf8f;
+    --accent-fg: #0f1a14;
+    --bad: #ff8a80;
+  }
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 17px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+main {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+
+header.bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+header.bar .name { font-weight: 600; text-decoration: none; color: var(--fg); }
+header.bar nav { display: flex; gap: 16px; }
+header.bar nav a { color: var(--accent); text-decoration: none; padding: 6px 0; }
+
+h1 { font-size: 26px; line-height: 1.25; margin: 8px 0 16px; }
+h2 { font-size: 19px; margin: 28px 0 8px; }
+p { margin: 0 0 12px; }
+.muted { color: var(--muted); }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+  margin: 0 0 16px;
+  overflow-wrap: anywhere;
+}
+.mono { font-family: ui-monospace, Menlo, Consolas, "DejaVu Sans Mono", monospace; font-size: 15px; }
+
+/* The sign-in page. */
+body.center { min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+form.login { width: 100%; max-width: 360px; padding: 24px 16px; }
+form.login h1 { margin-bottom: 4px; }
+label { display: block; font-size: 15px; color: var(--muted); margin: 20px 0 6px; }
+input[type=password], input[type=text] {
+  width: 100%;
+  padding: 13px 12px;
+  font-size: 17px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--fg);
+}
+.btn {
+  display: block;
+  width: 100%;
+  margin-top: 20px;
+  min-height: 50px;
+  font-size: 17px;
+  font-weight: 600;
+  border: 0;
+  border-radius: 10px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  cursor: pointer;
+}
+.msg { color: var(--bad); min-height: 1.5em; margin-top: 12px; }
+
+@media (min-width: 900px) {
+  main { padding-top: 40px; }
+  h1 { font-size: 32px; }
+  .btn.inline { display: inline-block; width: auto; padding: 0 28px; }
+}
+
+/* --- Kanji: the catch, the character, the group, Yours ------------------ */
+
+:root { --tint: #e3efe7; --kanji-font: "Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", "Noto Sans JP", "Hiragino Sans", serif; }
+@media (prefers-color-scheme: dark) { :root { --tint: #23392c; } }
+
+[hidden] { display: none !important; }
+.ja { font-family: var(--kanji-font); }
+.btn.secondary { background: transparent; color: var(--accent); border: 1px solid var(--line); }
+.btn:disabled { opacity: .55; cursor: default; }
+.row { display: flex; gap: 10px; }
+.row > .btn { margin-top: 12px; }
+
+/* The four ways to catch: full width on a phone, each at least 56 px. */
+.catch-buttons { display: grid; grid-template-columns: 1fr; gap: 10px; margin: 0 0 12px; }
+.catch-buttons .btn { margin: 0; min-height: 60px; font-size: 19px; }
+.catch-buttons .btn[aria-pressed=true] { outline: 3px solid var(--fg); outline-offset: 2px; }
+@media (min-width: 700px) { .catch-buttons { grid-template-columns: repeat(4, 1fr); } }
+
+.panel { margin: 16px 0 8px; }
+.panel[hidden] { display: none; }
+textarea {
+  width: 100%; min-height: 96px; padding: 12px; font: inherit; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--card); color: var(--fg);
+}
+input.typebox { font-size: 26px; }
+.pad {
+  display: block; width: 100%; max-width: 360px; aspect-ratio: 1; margin: 0 auto;
+  background: #fff; border: 1px solid var(--line); border-radius: 12px; touch-action: none;
+}
+.preview { display: block; max-width: 100%; max-height: 280px; margin: 12px auto 0; border-radius: 10px; }
+.say { min-height: 1.5em; margin: 10px 0 0; color: var(--muted); }
+.say.bad { color: var(--bad); }
+
+/* Large tappable characters: candidates, groups, Yours, Latest. */
+.chars { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; margin: 12px 0; padding: 0; list-style: none; }
+.chars.big { grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); }
+.chars a, .chars button {
+  display: flex; align-items: center; justify-content: center; aspect-ratio: 1;
+  font-family: var(--kanji-font); font-size: 36px; line-height: 1; text-decoration: none;
+  color: var(--fg); background: var(--card); border: 1px solid var(--line); border-radius: 10px; cursor: pointer; width: 100%;
+}
+.chars.big a, .chars.big button { font-size: 48px; }
+.chars .saved { background: var(--tint); }
+.chars .origin { outline: 3px solid var(--accent); outline-offset: -1px; border-color: var(--accent); }
+.result { padding: 14px 16px; border: 1px solid var(--accent); border-radius: 10px; background: var(--tint); margin: 12px 0; }
+.result a { color: var(--accent); font-weight: 600; }
+
+/* Loose ends. */
+.loose { list-style: none; padding: 0; margin: 0; }
+.loose > li { margin: 0 0 10px; }
+.loose .head { display: flex; gap: 12px; align-items: center; width: 100%; text-align: left; font: inherit; color: inherit; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; cursor: pointer; }
+.loose .thumb { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; flex: none; background: #fff; }
+.loose .meta { font-size: 15px; color: var(--muted); }
+.loose .open { border: 1px solid var(--line); border-top: 0; border-radius: 0 0 12px 12px; padding: 12px; margin-top: -6px; background: var(--card); }
+
+/* The character page. */
+.char-top { display: flex; align-items: center; gap: 20px; margin: 8px 0 12px; }
+.big-char { font-family: var(--kanji-font); font-size: 132px; line-height: 1.1; margin: 0; font-weight: 400; }
+.char-top .btn { width: auto; min-width: 128px; padding: 0 24px; margin: 0; }
+.btn.is-saved { background: var(--tint); color: var(--accent); border: 1px solid var(--accent); }
+.facts { margin: 8px 0 0; padding: 0; }
+.facts > div { display: grid; grid-template-columns: 7.5em 1fr; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.facts a { color: var(--accent); text-decoration: none; font-family: var(--kanji-font); font-size: 19px; }
+.catches { list-style: none; padding: 0; margin: 0; }
+.catches li { display: flex; gap: 12px; align-items: center; padding: 8px 0; }
+.catches img { width: 72px; height: 72px; object-fit: cover; border-radius: 8px; background: #fff; }
+.source { margin-top: 32px; font-size: 14px; color: var(--muted); }
+.source a { color: var(--muted); }

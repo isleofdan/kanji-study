@@ -1,0 +1,164 @@
+# Deploys the app to Fly. Run by hand from the Actions tab ("Deploy", then
+# "Run workflow"). Creates the app the first time, copies the passphrase
+# from the repository secret every time, makes COOKIE_SECRET once and keeps
+# it on Fly, deploys, then proves the result: the alive line answers, and
+# signing in through the sign-in form, as a person would, reaches the
+# Catch page.
+#
+# Repository secrets it needs: FLY_API_TOKEN (a Fly org token for Dan's
+# personal org, which can create apps; a deploy token cannot),
+# APP_PASSWORD and OPENROUTER_API_KEY (the model that reads a drawing or a
+# photo). The Fly app is <name in app.json>-dan; its records live on the
+# volume kanji_data, mounted at /data.
+name: Deploy
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+
+      - name: Run the checks
+        run: |
+          npm ci --no-audit --no-fund
+          npm test
+
+      - name: Read the app's name
+        run: |
+          name=$(jq -r .name app.json)
+          echo "APP=$name-dan" >> "$GITHUB_ENV"
+          echo "The Fly app is $name-dan."
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Refuse to run without the secrets
+        env:
+          APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          missing=""
+          [ -z "$FLY_API_TOKEN" ] && missing="$missing FLY_API_TOKEN"
+          [ -z "$APP_PASSWORD" ] && missing="$missing APP_PASSWORD"
+          [ -z "$OPENROUTER_API_KEY" ] && missing="$missing OPENROUTER_API_KEY"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository secret(s):$missing. Add them under Settings > Secrets and variables > Actions, then re-run. Nothing deployed."
+            exit 1
+          fi
+          echo "All three repository secrets are present: FLY_API_TOKEN, APP_PASSWORD, OPENROUTER_API_KEY."
+
+      - name: Create the app if it does not exist
+        run: |
+          if flyctl status --app "$APP" >/dev/null 2>&1; then
+            echo "App $APP exists."
+          else
+            echo "App $APP not found; creating it in org personal."
+            flyctl apps create "$APP" --org personal
+          fi
+
+      - name: Create the volume if there is none
+        run: |
+          if flyctl volumes list --app "$APP" | grep -q kanji_data; then
+            echo "Volume kanji_data exists."
+          else
+            flyctl volumes create kanji_data --region nrt --size 1 --app "$APP" --yes
+          fi
+
+      # The passphrase follows the repository secret on every deploy, so
+      # changing APP_PASSWORD in GitHub and re-running this resets it.
+      - name: Set the passphrase from the repository secret
+        env:
+          APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
+        run: |
+          flyctl secrets set --app "$APP" --stage "APP_PASSWORD=$APP_PASSWORD" >/dev/null
+          echo "APP_PASSWORD staged from the repository secret."
+
+      # As the Hebrew reader's Deploy does: set only when Fly does not hold
+      # it yet.
+      - name: Set the OpenRouter key if it is not set yet
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          if flyctl secrets list --app "$APP" 2>/dev/null | awk 'NR>1 {print $1}' | grep -qx OPENROUTER_API_KEY; then
+            echo "OPENROUTER_API_KEY already set; leaving it."
+          else
+            flyctl secrets set --app "$APP" --stage "OPENROUTER_API_KEY=$OPENROUTER_API_KEY" >/dev/null
+            echo "OPENROUTER_API_KEY staged."
+          fi
+
+      - name: Make COOKIE_SECRET once
+        run: |
+          if flyctl secrets list --app "$APP" 2>/dev/null | awk 'NR>1 {print $1}' | grep -qx COOKIE_SECRET; then
+            echo "COOKIE_SECRET already set; leaving it."
+          else
+            flyctl secrets set --app "$APP" --stage "COOKIE_SECRET=$(openssl rand -hex 32)" >/dev/null
+            echo "COOKIE_SECRET made and staged."
+          fi
+
+      - name: Deploy
+        run: flyctl deploy --remote-only --app "$APP" --ha=false --env "COMMIT=${GITHUB_SHA::7}"
+
+      - name: Check the alive line
+        run: |
+          base="https://$APP.fly.dev"
+          code=000
+          for i in $(seq 1 12); do
+            code=$(curl -s -o /tmp/alive.txt -w '%{http_code}' "$base/alive" || true)
+            [ "$code" = "200" ] && break
+            sleep 5
+          done
+          echo "alive: status $code"
+          echo "alive: $(cat /tmp/alive.txt 2>/dev/null)"
+          if [ "$code" != "200" ] || ! grep -q "^alive since .* · ${GITHUB_SHA::7}$" /tmp/alive.txt; then
+            echo "::error::$base/alive did not answer 200 with this commit's alive line."
+            exit 1
+          fi
+
+      # As a person would: open the sign-in page, send the form with the
+      # passphrase, keep the cookie it gives, open the sample screen.
+      - name: Sign in through the sign-in form
+        env:
+          APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
+        run: |
+          base="https://$APP.fly.dev"
+          jar=$(mktemp)
+          stranger=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$base/status")
+          echo "status page without a cookie: $stranger"
+          case "$stranger" in "303 $base/login"*) ;; *) echo "::error::The status page did not send a stranger to sign-in."; exit 1 ;; esac
+          curl -s -o /tmp/login.html "$base/login"
+          if ! grep -q '<form class="login" method="post" action="/login">' /tmp/login.html; then
+            echo "::error::The sign-in page carries no sign-in form."
+            exit 1
+          fi
+          login=$(curl -s -c "$jar" -o /dev/null -w '%{http_code}' \
+            --data-urlencode "passphrase=$APP_PASSWORD" --data-urlencode "next=/" "$base/login")
+          echo "sign-in form: HTTP $login"
+          cookie=$(awk '$6 ~ /_auth$/ {print $6}' "$jar")
+          expiry=$(awk '$6 ~ /_auth$/ {print $5}' "$jar")
+          if [ -n "$cookie" ]; then
+            echo "cookie: $cookie, expires $(date -u -d "@$expiry" '+%Y-%m-%d %H:%M UTC')"
+          else
+            echo "cookie: none"
+          fi
+          page=$(curl -s -b "$jar" -o /tmp/home.html -w '%{http_code}' "$base/")
+          if [ "$login" = "303" ] && [ -n "$cookie" ] && [ "$page" = "200" ] && grep -q '<body data-page="catch">' /tmp/home.html; then
+            echo "signed in: yes (Catch page: HTTP $page)"
+          else
+            echo "signed in: no (Catch page: HTTP $page)"
+            echo "::error::Signing in through the form with APP_PASSWORD did not reach the Catch page."
+            exit 1
+          fi
+          echo "Live at $base"
