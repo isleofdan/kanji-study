@@ -29,7 +29,14 @@ Session kanji-two, on the rented Linux machine agent-machine-dan, in auto mode (
   - Round 2: `qitem-20261022134412-b406455a`, PASS, returned as `qitem-20261022135248-a0bd240d` (closed done).
   - The checker's recorded verdict line, verbatim: "PASS for main..ca242a007f53e0da97bebe5a99d606b9b0a76ba4 in /data/home/dan/work/kanji-two. Full independent check passed: syntax 1.24 s, tests 7.16 s, screenshots 56.96 s. Three regression fixes verified by signed-in browser checks at both sizes and schemes."
 - **Live records before the walkthrough:** Dan's saved characters are 雨 and 峠. His loose end is the note "plaque at the temple gate, something with 雨 on top", from the kanji-one walkthrough. I did not read these through a signed-in request, because I have no passphrase on the machine (see "Deliberate divergences", 3).
-- **Live walkthrough with Dan:** the project thread walked it on his phone itself, on the coordinator's instruction, to avoid two voices. Its results are in the thread, not in this report.
+- **Live walkthrough with Dan:** the project thread walked it on his phone itself, on the coordinator's instruction, to avoid two voices. All seven live checks passed, by Dan, between 14:46 and 14:54 UTC:
+  - (a) "Explore" is in the top line.
+  - (b) The theme "The radicals of your saved characters" showed the 部首 groups of 雨 and 峠 (雨 and 山).
+  - (c) Ask works; Dan judged one answer questionable ("Produced one questionable answer, but functions well").
+  - (d) The exploration reopens under Earlier.
+  - (e) Remove on the temple-gate loose end showed "Removed · Undo", and Undo brought it back.
+  - (f) 峠 shows its Meaning line.
+  - (g) 勒 shows 人名用漢字.
 - **The team:** stopped with a snapshot (see "Fly machine and OpenRig lessons", 4). `/data/home/dan/FACTS.md` was updated with it.
 
 ## UI review
@@ -88,11 +95,16 @@ The screens are the character page (with Meaning), the Type candidates (with mea
    - 常用 2,136; 人名用 864, with 勒 `{"list":"jinmeiyo","grade":9, … "meaning":["halter and bit"]}`.
    - 雨 and 峠 carry meanings (`test/kanji.test.js`).
    - The builder compared it with main's copy: only 勒's list and grade and the new `meaning` field changed (`/data/home/dan/work/scratch-kanji-two/compare-data.mjs`).
-2. **Remove** (`test/catch.test.js`):
-   - `POST /catch/:id/remove` sets `deleted_at`.
-   - The loose end leaves `GET /data/home` and the character page's catches.
-   - `restore` brings it back.
-   - An unknown id is refused naming the valid ids.
+2. **Remove:** `node --test test/catch.test.js`, run in my clone on the final branch, ended `ℹ tests 17`, `ℹ pass 17`, `ℹ fail 0`. The Remove lines, verbatim:
+   - "✔ remove marks deleted_at and hides the catch from home and the character page; restore brings it back; no row is deleted (28.493849ms)"
+   - "✔ the deleted_at column is added to a catches table made before it, keeping its rows (63.952465ms)"
+   - "✔ an unknown character and an unknown catch are refused naming what is valid (12.583309ms)"
+
+   The keep-your-place lines from `node scripts/screenshots.mjs` (my rerun, signed in through the form), verbatim:
+   - "ok   phone light: Remove puts "Removed · Undo" at the row's height — loose end row top 578 px, "Removed · Undo" top 578 px, 0 px apart"
+   - "ok   phone light: Undo puts the row back in place — row top 578 px, back at 578 px"
+   - "ok   phone dark: Remove puts "Removed · Undo" at the row's height — loose end row top 578 px, "Removed · Undo" top 578 px, 0 px apart"
+   - "ok   computer light: Remove puts "Removed · Undo" at the row's height — loose end row top 391.5 px, "Removed · Undo" top 391.5 px, 0 px apart"
 3. **Themes** (`test/explore.test.js`):
    - There are 10 theme ids: `saved-radicals`, `saved-readings`, `last-catch`, `opened-unsaved`, `names-only`, `joyo-unranked`, `most-variants`, `rare-radicals`, `most-strokes` and `many-readings`.
    - Every theme id answers, and an unknown id is refused naming them.
@@ -112,7 +124,12 @@ The screens are the character page (with Meaning), the Type candidates (with mea
 7. **After the merge:**
    - The Deploy run was green, with the lines quoted in "What stands".
    - The live `/explore` answers 303 to `/login` when signed out.
-   - The `deleted_at` column: the live app runs fa0d7ed ("alive since 2026-10-22T14:32:46Z · fa0d7ed"), whose `lib/db.js:74` adds `catches.deleted_at` at start. I did not see the column through a signed-in request (no passphrase; see "Deliberate divergences", 3). Dan's Remove on the live site, in the thread's walkthrough, exercises it.
+   - The `deleted_at` column, observed live by Dan, signed in on his phone:
+     - At 14:52 UTC he pressed Remove on the temple-gate loose end at https://kanji-study-dan.fly.dev and saw "Removed · Undo" in its place.
+     - He pressed Undo and saw the row return, and confirmed "Yes, yes" in the thread.
+     - That round trip ran against the live database. `POST /catch/:id/remove` and `restore` write `deleted_at`, and "Removed" is written only after the server answers that the row was marked, so it can only succeed with the column present.
+     - The live app runs fa0d7ed ("alive since 2026-10-22T14:32:46Z · fa0d7ed"), whose `lib/db.js:74` adds the column at start.
+     - This session holds no passphrase, so it made no signed-in request of its own.
 
 ## Asks
 
@@ -120,7 +137,7 @@ None.
 
 ## What the next session needs
 
-- **Ask's model:** Dan judges the first real Ask results in use. The model is one constant (`lib/vision.js` `MODEL`, `anthropic/claude-sonnet-4.6`), and a change is one line.
+- **Ask's model:** Dan judges the first real Ask results in use; on the first walkthrough he found one answer questionable but said Ask "functions well". The model is one constant (`lib/vision.js` `MODEL`, `anthropic/claude-sonnet-4.6`), and a change is one line.
 - **Themes beyond KANJIDIC2** (呉音・漢音, 国字, 当て字, 熟字訓, the year's kanji, 難読地名) still need a sourced dataset or a model that cites its sources. Dan has not decided.
 - **Group opens:** `opens` now carries group opens in `group_kind`/`group_value` with `char` ''. A "next character with a reason" can read those as well.
 - **The owed settings entry:** the `sqlite3` `deny` entry in `.claude/settings.json` is still owed, to a session in Accept edits.
@@ -134,6 +151,7 @@ None.
 | Brief check 2 | 20261022-123650-be4a25 | PASS | Event 1886 |
 | Team check 1 | `qitem-20261022132505-7ba41141` | FINDINGS (3) | Fixed in ca242a0, see below |
 | Team check 2 | `qitem-20261022134412-b406455a` | PASS on ca242a0 | — |
+| Result check 1 | 20261022-145543-d866c0 (report event 1913) | FINDINGS (2) | Verify item 2 now quotes the Remove test output and the measurements; verify item 7 records Dan's live Remove/Undo; the live checks are recorded in "What stands" |
 
 Team check 1's three findings:
 1. Theme-page group links carried the array index, so they opened the wrong group (`public/js/theme.js:22`).
