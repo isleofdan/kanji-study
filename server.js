@@ -172,6 +172,11 @@ route('POST', /^\/catch\/([^/]+)\/choose$/, async (req, res, m) => {
   return sendJson(res, 200, { catch: shown(c), char, saved: db.isSaved(char) });
 });
 
+// Remove on a loose end marks the catch (deleted_at); restore clears it.
+// The page writes "Removed" only from this answer's deleted_at.
+route('POST', /^\/catch\/([^/]+)\/remove$/, (req, res, m) => sendJson(res, 200, { catch: shown(db.remove(m[1])) }));
+route('POST', /^\/catch\/([^/]+)\/restore$/, (req, res, m) => sendJson(res, 200, { catch: shown(db.restore(m[1])) }));
+
 route('POST', /^\/save$/, async (req, res) => {
   const char = mustChar((await readJson(req)).char);
   db.save(char);

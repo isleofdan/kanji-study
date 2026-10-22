@@ -185,13 +185,41 @@ function looseItem(c) {
       el('br'),
       el('span', { class: 'meta' }, [c.where_seen, day(c.created_at)].filter(Boolean).join(' · '))));
   let open = null;
+  const close = () => { if (open) { open.remove(); open = null; head.setAttribute('aria-expanded', 'false'); } };
   head.addEventListener('click', () => {
-    if (open) { open.remove(); open = null; head.setAttribute('aria-expanded', 'false'); return; }
+    if (open) return close();
     open = resolver(c, li);
     li.append(open);
     head.setAttribute('aria-expanded', 'true');
   });
-  li.append(head);
+
+  // Remove: one tap; the row's place is taken by "Removed · Undo" at the
+  // same height (rule 3), written only once the server answers that the
+  // catch is marked (rule 7). Undo puts the row back there.
+  const line = el('div', { class: 'line' }, head);
+  const removeBtn = el('button', { class: 'remove', type: 'button', 'aria-label': 'Remove this loose end' }, 'Remove');
+  line.append(removeBtn);
+  removeBtn.addEventListener('click', async () => {
+    removeBtn.disabled = true;
+    try {
+      const got = await api('POST', `/catch/${c.id}/remove`);
+      if (!got.catch.deleted_at) throw new Error('The server did not mark it removed.');
+      close();
+      const undo = el('button', { class: 'undo', type: 'button' }, 'Undo');
+      const removed = el('div', { class: 'removed', 'data-removed': c.id }, el('span', {}, 'Removed'), ' · ', undo);
+      replaceInPlace(line, removed);
+      undo.addEventListener('click', async () => {
+        undo.disabled = true;
+        try {
+          const back = await api('POST', `/catch/${c.id}/restore`);
+          if (back.catch.deleted_at) throw new Error('The server did not restore it.');
+          removeBtn.disabled = false;
+          replaceInPlace(removed, line);
+        } catch (e) { undo.disabled = false; removed.after(say(e.message, true)); }
+      });
+    } catch (e) { removeBtn.disabled = false; line.after(say(e.message, true)); }
+  });
+  li.append(line);
   return li;
 }
 

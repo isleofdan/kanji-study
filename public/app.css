@@ -159,6 +159,14 @@ input.typebox { font-size: 26px; }
 .loose .head { display: flex; gap: 12px; align-items: center; width: 100%; text-align: left; font: inherit; color: inherit; background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px; cursor: pointer; }
 .loose .thumb { width: 56px; height: 56px; object-fit: cover; border-radius: 8px; flex: none; background: #fff; }
 .loose .meta { font-size: 15px; color: var(--muted); }
+.loose .line { display: flex; gap: 8px; align-items: stretch; }
+.loose .line .head { flex: 1; min-width: 0; }
+.loose .remove, .loose .undo {
+  min-height: 44px; padding: 0 14px; font: inherit; font-size: 15px; font-weight: 600; cursor: pointer;
+  color: var(--accent); background: transparent; border: 1px solid var(--line); border-radius: 10px;
+}
+.loose .remove { flex: none; }
+.loose .removed { display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 6px 12px; color: var(--muted); border: 1px dashed var(--line); border-radius: 12px; }
 .loose .open { border: 1px solid var(--line); border-top: 0; border-radius: 0 0 12px 12px; padding: 12px; margin-top: -6px; background: var(--card); }
 
 /* The character page. */
