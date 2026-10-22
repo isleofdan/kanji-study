@@ -28,10 +28,13 @@ $('question').addEventListener('input', () => {
 });
 
 // "Explore" is replaced in place by "Thinking…", then by the result's link
-// or the failure line (rule 3). Changing the question brings it back.
+// or the failure line (rule 3). Changing the question once the answer is
+// in brings it back (the answer stays under Earlier); while "Thinking…"
+// shows, typing changes nothing on the page.
 const askBtn = $('ask');
+let asking = false;
 function askAgain() {
-  if (askBtn.isConnected) return;
+  if (asking || askBtn.isConnected) return;
   askBtn.style.marginTop = '';
   askBtn.style.marginBottom = '';
   $('ask-out').replaceChildren(askBtn);
@@ -40,7 +43,8 @@ function askAgain() {
 askBtn.addEventListener('click', () => {
   const question = $('question').value.trim();
   if (!question) { $('ask-out').querySelector('.say')?.remove(); askBtn.after(el('p', { class: 'say bad' }, 'Write a question first.')); return; }
-  explore(question, askBtn).then(() => load()).catch(() => {});
+  asking = true;
+  explore(question, askBtn).then(() => load()).catch(() => {}).finally(() => { asking = false; });
 });
 
 load().catch((e) => document.querySelector('main').append(el('p', { class: 'say bad' }, e.message)));

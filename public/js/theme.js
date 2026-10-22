@@ -19,7 +19,7 @@ const cell = (x) => el('li', {}, el('a', {
   if (t.groups) {
     const list = document.getElementById('groups');
     list.hidden = false;
-    list.replaceChildren(...t.groups.map(groupLine));
+    list.replaceChildren(...t.groups.map((g) => groupLine(g)));
     document.getElementById('count').textContent = t.groups.length ? '' : 'Nothing in your records leads here yet.';
   } else {
     grid.hidden = false;

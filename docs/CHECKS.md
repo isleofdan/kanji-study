@@ -17,7 +17,7 @@ The 3 Oct 2026 afternoon run used a fresh builder on the faster CPU.
 | - | - |
 | syntax | Every `.js`, `.mjs` and `.cjs` file outside `node_modules` parses (`node --check`, file by file). |
 | tests | `npm test`: the gate, the alive line, the status page and `lib/upstream.js` (the kit's 8), plus this app's 37: the kanji data, meanings, the 864 人名用 with 勒, its groups and the refusals that name valid values (`test/kanji.test.js`, 6), catches, reading against the stand-in model, choosing, a repeated catch of a saved character, saving, the values lists, the opens record, meanings on the character page and in every candidates answer, Remove and restore (`deleted_at`, the home answer, the character page's catches, unknown ids) and the `deleted_at` column added to a table made before it (`test/catch.test.js`, 17), Explore: every theme id and the refusal naming them, each data theme's contents, each records theme absent on empty records and present only once its own fixture exists, Ask against the stand-in (three of five kept, `dropped` 2, labels from the data), a model failure and a missing key saved on the row, the question limits and unknown exploration ids, Earlier, and the opens rows from a theme and from an exploration (`test/explore.test.js`, 13), and the missing model key for "Read it" (`test/vision.test.js`, 1). 45 tests. |
-| screenshots | `npm run screenshots`: every screen at phone (412×915) and computer (1280×800) size, in light and dark, signing in through the form, with no sideways scrolling; it walks Catch empty, Draw after "Read it", a character page with its Meaning line, a group page with the origin outlined, Catch with loose ends and latest, Yours, Type candidates with their meanings, a loose end before and after Remove, Explore with themes, a theme page, an exploration, Explore with "Earlier", and Status; it measures that "Save"→"Saved", choosing a candidate (the result's top against the pressed candidate's top), resolving a later loose end from a candidate on a later row, "Add this catch"→"Saved", Remove→"Removed · Undo"→Undo, and "Explore"→"Thinking…"→the result's link keep their place, and that Keep comes back for a second note, drawing and photo (231 checks, 58 images). Needs Playwright's browser. |
+| screenshots | `npm run screenshots`: every screen at phone (412×915) and computer (1280×800) size, in light and dark, signing in through the form, with no sideways scrolling; it walks Catch empty, Draw after "Read it", a character page with its Meaning line, a group page with the origin outlined, Catch with loose ends and latest, Yours, Type candidates with their meanings, a loose end before and after Remove, Explore with themes, a theme page, an exploration, Explore with "Earlier", and Status; it measures that "Save"→"Saved", choosing a candidate (the result's top against the pressed candidate's top), resolving a later loose end from a candidate on a later row, "Add this catch"→"Saved", Remove→"Removed · Undo"→Undo, and "Explore"→"Thinking…"→the result's link keep their place, that typing during "Thinking…" does not lose the answer, that a theme page of groups links each line to its own group, that the model's reasons keep the heading "In the model's words" when it gives no reading, and that Keep comes back for a second note, drawing and photo (247 checks, 58 images). Needs Playwright's browser. |
 
 The model in every check is the stand-in, `scripts/mock-openrouter.mjs`
 (after the Hebrew reader's), set by `OPENROUTER_URL`; no check calls the
@@ -31,9 +31,9 @@ use an empty records folder of their own, never `./var`.
 
 Counts as last run (kanji-two, 22 Oct 2026, the rented Linux machine,
 Node 24.21.0): `npm test` 45 tests, 45 passed; `npm run screenshots`
-231 checks, 231 passed, 58 images; `npm run check` ended
-`check: all passed: syntax, tests, screenshots` in 77 s (syntax 1.10 s,
-tests 10.11 s, screenshots 65.29 s).
+247 checks, 247 passed, 58 images; `npm run check` ended
+`check: all passed: syntax, tests, screenshots` in 75 s (syntax 1.67 s,
+tests 8.23 s, screenshots 64.92 s).
 
 Remove on a loose end at 412 px width (phone, light and dark): loose end
 row top 578 px, "Removed · Undo" top 578 px, 0 px apart; Undo puts the row

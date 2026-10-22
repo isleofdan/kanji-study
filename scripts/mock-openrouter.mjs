@@ -13,11 +13,13 @@
 //   {"fail": null}       answer normally again
 //   {"delay": 1500}      wait that many milliseconds before answering
 //                        (so a check can see "Thinking…"); 0 for none
+//   {"noReading": true}  answer an Explore question with no reading
+//                        sentence, only the stops and their reasons
 // GET /calls answers how many model requests came, and the last one.
 import http from 'node:http';
 
 const port = Number(process.argv[2]) || 8931;
-const control = { fail: null, delay: 0 };
+const control = { fail: null, delay: 0, noReading: false };
 let calls = 0;
 let last = null;
 
@@ -60,7 +62,10 @@ http.createServer((req, res) => {
       return;
     }
     if (control.fail === 'garbage') return answer(res, 'I think it is rain.');
-    if (ask.includes('help a fluent reader of Japanese explore')) return answer(res, JSON.stringify(EXPLORE));
+    if (ask.includes('help a fluent reader of Japanese explore')) {
+      const { reading, ...rest } = EXPLORE;
+      return answer(res, JSON.stringify(control.noReading ? rest : EXPLORE));
+    }
     const kanji = ask.includes('handwritten') ? ['雨', '峠', '龘'] : ['峠', '雨', '龘'];
     answer(res, JSON.stringify({ kanji }));
   });

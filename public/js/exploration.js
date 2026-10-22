@@ -27,7 +27,11 @@ const notInData = (n) => `${n} more the model named ${n === 1 ? 'is' : 'are'} no
     return;
   }
   const parts = [];
-  if (x.reading) parts.push(el('section', { class: 'model-words' }, el('h2', {}, "In the model's words"), el('p', { class: 'reading' }, x.reading)));
+  // The heading stands over any model-written sentence: the reading, or
+  // only the reasons when the model gave no reading.
+  if (x.reading || x.stops.some((s) => s.why)) {
+    parts.push(el('section', { class: 'model-words' }, el('h2', {}, "In the model's words"), x.reading ? el('p', { class: 'reading' }, x.reading) : null));
+  }
   if (x.stops.length) {
     parts.push(el('ol', { class: 'stops', id: 'stops' }, x.stops.map(stop)));
     if (x.dropped) parts.push(el('p', { class: 'muted' }, notInData(x.dropped)));

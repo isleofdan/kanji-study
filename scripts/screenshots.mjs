@@ -331,6 +331,17 @@ for (const [size, viewport] of Object.entries(SIZES)) {
     check(`${tag}: a theme page shows its title and characters`, (await page.textContent('#heading')) === 'The most strokes' && (await page.$$eval('#chars li', (l) => l.length)) > 0);
     await shot(page, 'theme');
 
+    // A theme page of groups: each line opens its own group.
+    await page.goto(`${base}/explore/theme/rare-radicals`);
+    await page.waitForSelector('#groups li a');
+    const groupHrefs = await page.$$eval('#groups a', (as) => as.map((a) => a.getAttribute('href')));
+    const expected = (await page.evaluate(async () => (await (await fetch('/data/theme/rare-radicals', { headers: { accept: 'application/json' } })).json()).groups))
+      .map((g) => `/g/radical/${g.value}`);
+    check(`${tag}: a theme page of groups links each line to its own group`, groupHrefs.length === 20 && groupHrefs.join(' ') === expected.join(' '), groupHrefs.slice(0, 3).join(' '));
+    await page.click('#groups a >> nth=0');
+    await page.waitForSelector('#chars li');
+    check(`${tag}: the first line opens its radical's group page`, new URL(page.url()).pathname === expected[0] && (await page.textContent('#heading')).startsWith('部首 '), page.url());
+
     // Ask: "Explore" becomes "Thinking…" at the same height, then the link
     // to the result. The stand-in waits a moment so "Thinking…" is seen.
     await page.goto(`${base}/explore`);
@@ -345,7 +356,10 @@ for (const [size, viewport] of Object.entries(SIZES)) {
     const thinkingText = await page.textContent('.thinking');
     check(`${tag}: "Explore" becomes "Thinking…" at the same height`, thinkingText === 'Thinking…' && Math.abs(thinkingTop - askTop) < 1,
       `"Explore" top ${askTop} px, "Thinking…" top ${thinkingTop} px, ${Math.abs(thinkingTop - askTop)} px apart`);
+    // Typing while "Thinking…" shows does not lose the answer.
+    await page.type('#question', ' and gates');
     await page.waitForSelector('[data-result] a');
+    check(`${tag}: typing during "Thinking…" leaves the answer to arrive`, await page.isVisible('[data-result] a'));
     await mockControl({ delay: 0 });
     const resultAt = await top(page.locator('[data-result]'));
     check(`${tag}: the result's link takes the same place`, Math.abs(resultAt - askTop) < 1, `result top ${resultAt} px`);
@@ -362,6 +376,17 @@ for (const [size, viewport] of Object.entries(SIZES)) {
     check(`${tag}: the page never says "stop"`, !/\bstops?\b/i.test(await page.textContent('main')));
     await shot(page, 'exploration');
 
+    // With no reading sentence, the reasons still stand under "In the
+    // model's words".
+    await mockControl({ noReading: true });
+    const bare = await page.evaluate(async () => (await (await fetch('/explore', { method: 'POST', headers: { accept: 'application/json', 'content-type': 'application/json' },
+      body: JSON.stringify({ question: 'old signs, no reading' }) })).json()).exploration.id);
+    await mockControl({ noReading: false });
+    await page.goto(`${base}/explore/${bare}`);
+    await page.waitForSelector('#stops li');
+    check(`${tag}: with no reading, the reasons keep the heading "In the model's words"`,
+      (await page.textContent('.model-words h2')) === "In the model's words" && !(await page.$('.reading')) && (await page.$$('.why')).length === 3);
+
     // Explore again: "Earlier" lists the question.
     await page.click('header nav a[href="/explore"]');
     await page.waitForSelector('#earlier li');
@@ -377,6 +402,6 @@ for (const [size, viewport] of Object.entries(SIZES)) {
 }
 await browser.close();
 const calls = await (await fetch(`http://127.0.0.1:${MOCK_PORT}/calls`)).json();
-check('the stand-in model was asked once per "Read it" and once per "Explore", and no more', calls.calls === Object.keys(SIZES).length * SCHEMES.length * 2, `${calls.calls} calls`);
+check('the stand-in model was asked once per "Read it" and once per question asked, and no more', calls.calls === Object.keys(SIZES).length * SCHEMES.length * 3, `${calls.calls} calls`);
 console.log(failed ? `${failed} check(s) failed` : `all checks passed; ${SCREENS.length} screens × 2 sizes × 2 schemes in ${out}`);
 process.exit(failed ? 1 : 0);
