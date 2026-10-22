@@ -133,11 +133,21 @@ route('POST', /^\/catch$/, async (req, res) => {
 
 // Sends the catch's image to the model, once per press. The catch stays a
 // loose end until Dan chooses; a failure answers the line saying which.
+// A loose end with no image (a note) may bring a drawing, which becomes
+// its image; a newer drawing for a drawn catch is read in place of the old
+// one and kept as the catch's image only if the catch had none.
 route('POST', /^\/catch\/([^/]+)\/read$/, async (req, res, m) => {
-  const c = db.getCatch(m[1]);
-  if (!c.image) throw Object.assign(new Error(`catch ${c.id} has no image to read; only drawn and photo catches can be read`), { status: 400 });
+  let c = db.getCatch(m[1]);
+  const body = await readJson(req, IMAGE_BODY_MAX);
+  let image = c.image;
+  if (body.image) {
+    const stored = images.store(body.image);
+    c = c.image ? c : db.setImage(c.id, stored);
+    image = stored;
+  }
+  if (!image) throw Object.assign(new Error(`catch ${c.id} has no image to read; send a drawing as image, or read a drawn or photo catch`), { status: 400 });
   try {
-    const got = await vision.read(c.kind === 'photo' ? 'photo' : 'drawn', images.dataUrl(c.image));
+    const got = await vision.read(c.kind === 'photo' && image === c.image ? 'photo' : 'drawn', images.dataUrl(image));
     return sendJson(res, 200, { catch: shown(c), candidates: got.candidates, dropped: got.dropped });
   } catch (e) {
     if (!(e instanceof vision.ReadError)) throw e;
@@ -182,9 +192,47 @@ route('GET', /^\/data\/group\/([^/]+)\/([^/]+)$/, (req, res, m) => {
   });
 });
 
+// The characters of typed text that are in the data, for resolving a loose
+// end by typing. Makes no catch.
+route('GET', /^\/data\/candidates$/, (req, res) => {
+  sendJson(res, 200, { candidates: kanji.inText(new URL(req.url, 'http://x').searchParams.get('text')) });
+});
+
 route('GET', /^\/data\/home$/, (req, res) => sendJson(res, 200, { loose: db.looseEnds().map(shown), latest: db.latest(10).map(shown) }));
 
 route('GET', /^\/data\/yours$/, (req, res) => sendJson(res, 200, { saved: db.savedList() }));
+
+// --- the pages ----------------------------------------------------------------
+// Plain HTML from public/; the page's own script (public/js/) reads the data
+// routes above.
+
+function notFoundPage(res, status, message) {
+  sendHtml(res, status, page('notfound.html', { MESSAGE: message }));
+}
+
+// Opening a character page writes one opens row, with the fact Dan came
+// from when he came from a group (?kind=…&value=…).
+route('GET', /^\/k\/([^/]+)$/, (req, res, m) => {
+  const k = kanji.get(param(m[1]));
+  if (!k) return notFoundPage(res, 404, `${param(m[1])} is not one of the ${kanji.count.toLocaleString('en')} kanji in the data (KANJIDIC2).`);
+  const q = new URL(req.url, 'http://x').searchParams;
+  const fromKind = kanji.KINDS.includes(q.get('kind')) ? q.get('kind') : null;
+  db.recordOpen(k.c, fromKind, fromKind ? text(q.get('value'), 100) : null);
+  sendHtml(res, 200, page('char.html', { CHAR: k.c }));
+});
+
+route('GET', /^\/g\/([^/]+)\/([^/]+)$/, (req, res, m) => {
+  const kind = param(m[1]);
+  const value = param(m[2]);
+  try { kanji.group(kind, value); } catch (e) { return notFoundPage(res, e.status || 400, e.message); }
+  sendHtml(res, 200, page('group.html', { LABEL: kanji.label(kind, value) }));
+});
+
+route('GET', /^\/yours$/, (req, res) => sendHtml(res, 200, page('yours.html')));
+
+route('GET', /^\/js\/([a-z]+\.js)$/, (req, res, m) => {
+  if (!serveStatic(res, path.join(PUBLIC, 'js'), `/${m[1]}`)) return sendJson(res, 404, { error: 'not found' });
+});
 
 route('GET', /^\/img\/([^/]+)$/, (req, res, m) => {
   if (!images.validName(m[1]) || !serveStatic(res, db.IMAGES, `/${m[1]}`)) return sendJson(res, 404, { error: 'no such image' });
