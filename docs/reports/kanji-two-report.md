@@ -21,7 +21,7 @@ Session kanji-two, on the rented Linux machine agent-machine-dan, in auto mode (
   - Remove on a loose end comes with Undo in place (`catches.deleted_at`, added by `ALTER TABLE`; no row is ever deleted).
   - The Explore page `/explore` has three parts: Themes (computed by code, `lib/explore.js`), Ask (`POST /explore`, the model through OpenRouter via `lib/upstream.js`, kept stops only), and Earlier. Theme pages are at `/explore/theme/<id>` and exploration pages at `/explore/<id>`.
   - There is a new table, `explorations`, and the columns `opens.group_kind` and `opens.group_value` were added (see "Deliberate divergences", 2).
-  - "Explore" was added to the top line of every page.
+  - "Explore" was added to the top line of every app page (Catch, character, group, Yours, Explore and its pages); the status page keeps the kit's top line, see "Deliberate divergences" 5.
   - There are 45 tests and 247 browser checks (58 images) against a stand-in model.
 - **The team did the work.** The OpenRig team built and checked it: builder `dev-owner@kanji-two-mixed` (Claude Code) and checker `dev-check@kanji-two-mixed` (Codex), in rig `kanji-two-mixed` (id `01M5HT0KR29MPQE4N1KXT40RQC`).
   - Queue items: the job `qitem-20261022124245-0b704d7b` (closed done).
@@ -53,7 +53,7 @@ The screens are the character page (with Meaning), the Type candidates (with mea
    - A failed Ask keeps the question and offers "Explore" again on it.
    - Nothing is deleted from the records.
 3. **Finding the tool:**
-   - "Explore" is in the top line of every page.
+   - "Explore" is in the top line of every app page except the status page (see "Deliberate divergences" 5).
    - Remove is at the right edge of each loose end, as tall as the row (102.5 px on the phone, 77 px on the computer).
 4. **Orientation:**
    - Theme pages and exploration pages name what they show: the theme's title line, the question, and the group labels from the data.
@@ -152,6 +152,7 @@ None.
 | Team check 1 | `qitem-20261022132505-7ba41141` | FINDINGS (3) | Fixed in ca242a0, see below |
 | Team check 2 | `qitem-20261022134412-b406455a` | PASS on ca242a0 | — |
 | Result check 1 | 20261022-145543-d866c0 (report event 1913) | FINDINGS (2) | Verify item 2 now quotes the Remove test output and the measurements; verify item 7 records Dan's live Remove/Undo; the live checks are recorded in "What stands" |
+| Result check 2 | 20261022-150619-4b3305 (report event 1921) | FINDINGS (1) | The two "every page" claims about Explore now say "every app page except the status page", matching divergence 5; corrected by the Personal Shipyard thread |
 
 Team check 1's three findings:
 1. Theme-page group links carried the array index, so they opened the wrong group (`public/js/theme.js:22`).
