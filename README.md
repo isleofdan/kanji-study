@@ -6,6 +6,16 @@ behind a passphrase. It opens on catching a character met away from a desk
 gives each character one page where every fact links to the group of
 characters that share it.
 
+## Where the kanji facts come from
+
+This app uses the KANJIDIC2 dictionary file. This file is the property of
+the Electronic Dictionary Research and Development Group, and is used in
+conformance with the Group's licence (Creative Commons
+Attribution-ShareAlike 4.0): https://www.edrdg.org/edrdg/licence.html.
+The project page: https://www.edrdg.org/wiki/index.php/KANJIDIC_Project.
+`scripts/build-kanji.mjs` downloads the file and writes the compact
+`data/kanji.json` the app reads; only that file is kept here.
+
 Made from `isleofdan/starting-kit`; the kit's sign-in page, status page,
 checks and Deploy workflow come with it.
 

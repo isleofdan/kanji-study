@@ -12,6 +12,7 @@ const fs = require('node:fs');
 const app = require('./lib/app');
 const auth = require('./lib/auth');
 const upstream = require('./lib/upstream');
+const kanji = require('./lib/kanji');
 const ratelimit = require('./lib/ratelimit');
 const { execFileSync } = require('node:child_process');
 const { sendJson, sendHtml, sendText, redirect, readJson, serveStatic, escapeHtml } = require('./lib/http');
@@ -93,7 +94,10 @@ route('GET', /^\/status$/, (req, res) => {
   const { calls, lastError: e } = upstream.state();
   const headline = e ? `${e.service} answered ${e.status ?? 'nothing'} at ${e.at.replace('T', ' ').replace(/\.\d+Z$/, ' UTC')}`
     : calls ? `Nothing failed (${calls} calls so far).` : 'Nothing called yet.';
-  sendHtml(res, 200, page('status.html', { ALIVE: aliveLine(), UPSTREAM_HEADLINE: headline, UPSTREAM_DETAIL: e ? e.message : '' }));
+  sendHtml(res, 200, page('status.html', {
+    ALIVE: aliveLine(), UPSTREAM_HEADLINE: headline, UPSTREAM_DETAIL: e ? e.message : '',
+    DATA_LICENCE: kanji.header.licence, DATA_COUNT: kanji.count.toLocaleString('en'), DATA_VERSION: kanji.header.database_version,
+  }));
 });
 
 // --- the server -------------------------------------------------------------
