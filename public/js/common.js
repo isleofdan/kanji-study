@@ -106,6 +106,11 @@ function reducePhoto(file, maxSide = 1600) {
   });
 }
 
+// A group as one tappable line: its heading's words from the data and how
+// many characters it holds (Explore's themes and explorations).
+const groupLine = (g, query = '') => el('li', {}, el('a', { href: `/g/${encodeURIComponent(g.kind)}/${encodeURIComponent(g.value)}${query}` },
+  el('span', { lang: 'ja' }, g.label), ' ', el('span', { class: 'count' }, `${g.count.toLocaleString('en')} ${g.count === 1 ? 'character' : 'characters'}`)));
+
 // A candidate's first meanings from the data, in small text under it, so
 // Dan can tell which one he saw; nothing when the data has none.
 const gloss = (meaning, c) => (meaning && meaning[c] ? el('span', { class: 'gloss' }, meaning[c].join(', ')) : null);

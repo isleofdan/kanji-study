@@ -16,6 +16,7 @@ const kanji = require('./lib/kanji');
 const db = require('./lib/db');
 const images = require('./lib/images');
 const vision = require('./lib/vision');
+const explore = require('./lib/explore');
 const ratelimit = require('./lib/ratelimit');
 const { execFileSync } = require('node:child_process');
 const { sendJson, sendHtml, sendText, redirect, readJson, serveStatic, escapeHtml } = require('./lib/http');
@@ -232,14 +233,23 @@ function notFoundPage(res, status, message) {
   sendHtml(res, status, page('notfound.html', { MESSAGE: message }));
 }
 
-// Opening a character page writes one opens row, with the fact Dan came
-// from when he came from a group (?kind=…&value=…).
+// Where a character page was opened from (?kind=…&value=…): a group (one of
+// the fact kinds), a theme (`theme` and its id) or an exploration
+// (`exploration` and its id). Anything else is recorded as no origin.
+function openedFrom(q) {
+  const kind = q.get('kind');
+  const value = text(q.get('value'), 100);
+  if (kanji.KINDS.includes(kind)) return [kind, value];
+  if (kind === 'theme' && explore.IDS.includes(value)) return [kind, value];
+  if (kind === 'exploration' && /^\d+$/.test(value || '')) return [kind, value];
+  return [null, null];
+}
+
+// Opening a character page writes one opens row, with where Dan came from.
 route('GET', /^\/k\/([^/]+)$/, (req, res, m) => {
   const k = kanji.get(param(m[1]));
   if (!k) return notFoundPage(res, 404, `${param(m[1])} is not one of the ${kanji.count.toLocaleString('en')} kanji in the data (KANJIDIC2).`);
-  const q = new URL(req.url, 'http://x').searchParams;
-  const fromKind = kanji.KINDS.includes(q.get('kind')) ? q.get('kind') : null;
-  db.recordOpen(k.c, fromKind, fromKind ? text(q.get('value'), 100) : null);
+  db.recordOpen(k.c, ...openedFrom(new URL(req.url, 'http://x').searchParams));
   // The Meaning line is in the page as it comes, so nothing moves under
   // Save when the facts load.
   sendHtml(res, 200, page('char.html', { CHAR: k.c, MEANING: k.meaning ? k.meaning.join(', ') : '—' }));
@@ -253,6 +263,24 @@ route('GET', /^\/g\/([^/]+)\/([^/]+)$/, (req, res, m) => {
 });
 
 route('GET', /^\/yours$/, (req, res) => sendHtml(res, 200, page('yours.html')));
+
+// --- Explore: themes computed by code (lib/explore.js) -------------------------
+
+route('GET', /^\/explore$/, (req, res) => sendHtml(res, 200, page('explore.html')));
+
+route('GET', /^\/explore\/theme\/([^/]+)$/, (req, res, m) => {
+  let t;
+  try { t = explore.theme(param(m[1])); } catch (e) { return notFoundPage(res, e.status || 400, e.message); }
+  sendHtml(res, 200, page('theme.html', { HEADING: t.title }));
+});
+
+route('GET', /^\/data\/explore$/, (req, res) => sendJson(res, 200, { themes: explore.themes() }));
+
+route('GET', /^\/data\/theme\/([^/]+)$/, (req, res, m) => {
+  const t = explore.theme(param(m[1]));
+  const saved = db.savedSet();
+  sendJson(res, 200, t.chars ? { ...t, chars: t.chars.map((c) => ({ c, saved: saved.has(c) })) } : t);
+});
 
 route('GET', /^\/js\/([a-z]+\.js)$/, (req, res, m) => {
   if (!serveStatic(res, path.join(PUBLIC, 'js'), `/${m[1]}`)) return sendJson(res, 404, { error: 'not found' });
@@ -308,6 +336,11 @@ const server = http.createServer((req, res) => {
   });
 });
 
-server.listen(PORT, () => console.log(`${app.name} on ${PORT}`));
+server.listen(PORT, () => {
+  console.log(`${app.name} on ${PORT}`);
+  // The data themes are worked out once; do it now rather than on the
+  // first visit to Explore.
+  setImmediate(() => explore.themes());
+});
 
 module.exports = server;

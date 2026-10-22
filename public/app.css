@@ -169,6 +169,12 @@ input.typebox { font-size: 26px; }
 .loose .removed { display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 6px 12px; color: var(--muted); border: 1px dashed var(--line); border-radius: 12px; }
 .loose .open { border: 1px solid var(--line); border-top: 0; border-radius: 0 0 12px 12px; padding: 12px; margin-top: -6px; background: var(--card); }
 
+/* Explore: themes, groups and earlier explorations as plain tappable lines. */
+.lines { list-style: none; padding: 0; margin: 8px 0 0; }
+.lines > li { border-bottom: 1px solid var(--line); }
+.lines a { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; min-height: 48px; padding: 12px 0; color: var(--accent); text-decoration: none; }
+.lines .count, .lines .meta { color: var(--muted); font-size: 15px; }
+
 /* The character page. */
 .char-top { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; margin: 8px 0 12px; }
 .meaning h2 { font-size: 15px; font-weight: 400; color: var(--muted); margin: 0 0 2px; }
