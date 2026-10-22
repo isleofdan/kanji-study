@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{TITLE}} — status</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+<header class="bar">
+  <a class="name" href="/">{{TITLE}}</a>
+  <nav><a href="/status">Status</a><a href="/logout">Sign out</a></nav>
+</header>
+<main>
+  <h1>Status</h1>
+  <h2>Alive</h2>
+  <div class="card mono" id="alive">{{ALIVE}}</div>
+  <h2>Last error from outside the app</h2>
+  <div class="card" id="upstream">
+    <p id="upstream-headline">{{UPSTREAM_HEADLINE}}</p>
+    <p class="mono muted" id="upstream-detail">{{UPSTREAM_DETAIL}}</p>
+  </div>
+</main>
+</body>
+</html>
