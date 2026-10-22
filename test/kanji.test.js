@@ -12,9 +12,9 @@ test('the data file has every field for 雨, 峠, 辻, 學 and 一', () => {
   for (const c of ['雨', '峠', '辻', '學', '一']) {
     const k = kanji.get(c);
     assert.ok(k, `${c} is in the data`);
-    assert.deepEqual(Object.keys(k), FIELDS, c);
+    assert.deepEqual(Object.keys(k), [...FIELDS, 'meaning'], c);
   }
-  assert.deepEqual(kanji.get('雨'), { c: '雨', list: 'joyo', grade: 1, radical: 173, radical_char: '雨', strokes: 8, freq: 950, on: ['ウ'], kun: ['あめ', 'あま-', '-さめ'], nanori: [], variants: [] });
+  assert.deepEqual(kanji.get('雨'), { c: '雨', list: 'joyo', grade: 1, radical: 173, radical_char: '雨', strokes: 8, freq: 950, on: ['ウ'], kun: ['あめ', 'あま-', '-さめ'], nanori: [], variants: [], meaning: ['rain'] });
   assert.equal(kanji.get('峠').list, 'joyo');
   assert.equal(kanji.get('峠').radical_char, '山');
   assert.equal(kanji.get('辻').list, 'jinmeiyo');
@@ -24,12 +24,26 @@ test('the data file has every field for 雨, 峠, 辻, 學 and 一', () => {
   assert.equal(kanji.get('一').freq, 2);
 });
 
-test('the counts: 13,108 characters, 2,136 常用 and 863 人名用, with the licence line in the header', () => {
+test('meanings: KANJIDIC2\'s English ones in file order, absent where the file has none', () => {
+  assert.deepEqual(kanji.get('雨').meaning, ['rain']);
+  assert.deepEqual(kanji.get('峠').meaning, ['mountain peak', 'mountain pass', 'climax', 'crest', '(kokuji)']);
+  assert.ok(kanji.get('交').meaning.includes('coming & going'), 'XML escapes are read back as text');
+  const none = kanji.get('乁');
+  assert.ok(none, '乁 is in the data');
+  assert.equal('meaning' in none, false, '乁 has no English meaning in KANJIDIC2');
+  assert.equal(kanji.header.with_meaning, 10384);
+});
+
+test('the counts: 13,108 characters, 2,136 常用 and 864 人名用 (勒 added), with the licence line in the header', () => {
   assert.equal(kanji.count, 13108);
   assert.equal(kanji.header.joyo, 2136);
-  assert.equal(kanji.header.jinmeiyo, 863);
+  assert.equal(kanji.header.jinmeiyo, 864);
+  assert.deepEqual(kanji.header.jinmeiyo_added, ['勒']);
+  assert.equal(kanji.get('勒').list, 'jinmeiyo');
+  assert.equal(kanji.get('勒').grade, 9);
   assert.equal(kanji.group('list', 'joyo').length, 2136);
-  assert.equal(kanji.group('list', 'jinmeiyo').length, 863);
+  assert.equal(kanji.group('list', 'jinmeiyo').length, 864);
+  assert.ok(kanji.group('list', 'jinmeiyo').some((k) => k.c === '勒'));
   assert.match(kanji.header.licence, /KANJIDIC2 dictionary file.*Electronic Dictionary Research and Development Group/);
 });
 
