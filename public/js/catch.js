@@ -22,25 +22,38 @@ for (const b of document.querySelectorAll('[data-panel]')) {
 const chosen = (char, saved) => el('div', { class: 'result', 'data-chosen': char },
   el('span', { class: 'ja', lang: 'ja' }, char), saved ? ' saved to Yours. ' : ' chosen. ', el('a', { href: charLink(char) }, 'Open its page'));
 
+// Resolves the catch; the result takes the place of `control`, the list of
+// candidates he tapped in (rule 3).
 async function choose(catchId, char, control) {
   const got = await api('POST', `/catch/${catchId}/choose`, { char });
   replaceInPlace(control, chosen(got.char, got.saved));
   loadHome();
+  return got;
 }
 
-// "Read it": shows "Reading…", then the candidates, or the line saying why not.
-async function readInto(out, catchId, image) {
+// "Read it": shows "Reading…", then the candidates, or the line saying why
+// not. A pick resolves the catch in place of the list; `after` runs then.
+async function readInto(out, catchId, image, after = () => {}) {
   const reading = say('Reading…');
   out.replaceChildren(reading);
   try {
     const got = await api('POST', `/catch/${catchId}/read`, image ? { image } : undefined);
     if (!got.candidates.length) { reading.textContent = 'No kanji from the data in it. It is kept as a loose end.'; return; }
-    const list = candidateList(got.candidates, (c) => choose(catchId, c, list).catch((e) => list.after(say(e.message, true))));
+    const list = candidateList(got.candidates, (c, l) => choose(catchId, c, l).then(after).catch((e) => l.after(say(e.message, true))));
     out.replaceChildren(el('p', { class: 'say' }, 'Tap the one you saw:'), list);
   } catch (e) {
     out.replaceChildren(say(`${e.message} It is kept as a loose end.`, true));
   }
   loadHome();
+}
+
+// A "Keep" control that, once pressed, shows "Kept as a loose end." in its
+// place, and comes back as soon as he starts the next catch (`ready()`).
+function keeper(out, button) {
+  return {
+    done() { replaceInPlace(button, say('Kept as a loose end.')); },
+    ready() { button.style.minHeight = ''; out.replaceChildren(button); },
+  };
 }
 
 // --- Type ---------------------------------------------------------------------
@@ -58,30 +71,34 @@ $('type-form').addEventListener('submit', async (e) => {
 
 // --- Draw ---------------------------------------------------------------------
 const pad = drawingPad($('pad'));
-$('draw-clear').addEventListener('click', () => { pad.clear(); });
-
-async function keepImage(kind, image, control) {
-  const got = await api('POST', '/catch', { kind, image, where: where() });
-  replaceInPlace(control, say('Kept as a loose end.'));
-  loadHome();
-  return got.catch;
-}
+const drawKeep = keeper($('draw-out'), $('draw-keep'));
+// A new drawing starts a new catch: Keep comes back.
+$('pad').addEventListener('pointerdown', () => drawKeep.ready());
+$('draw-clear').addEventListener('click', () => { pad.clear(); drawKeep.ready(); });
 
 $('draw-read').addEventListener('click', async () => {
   const out = $('draw-out');
   if (pad.empty()) { out.replaceChildren(say('Draw the character first.', true)); return; }
   try {
     const got = await api('POST', '/catch', { kind: 'drawn', image: pad.png(), where: where() });
-    await readInto(out, got.catch.id);
+    await readInto(out, got.catch.id, null, () => pad.clear());
   } catch (e) { out.replaceChildren(say(e.message, true)); }
 });
 $('draw-keep').addEventListener('click', async (e) => {
   if (pad.empty()) { e.target.after(say('Draw the character first.', true)); return; }
-  try { await keepImage('drawn', pad.png(), e.target); } catch (err) { e.target.after(say(err.message, true)); }
+  try {
+    await api('POST', '/catch', { kind: 'drawn', image: pad.png(), where: where() });
+    drawKeep.done();
+    pad.clear();
+    loadHome();
+  } catch (err) { e.target.after(say(err.message, true)); }
 });
 
 // --- Photo --------------------------------------------------------------------
 let photo = null;
+// Held here: after a Keep the button is out of the page until the next photo.
+const photoKeepBtn = $('photo-keep');
+const photoKeep = keeper($('photo-out'), photoKeepBtn);
 $('photo-file').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
@@ -90,8 +107,8 @@ $('photo-file').addEventListener('change', async (e) => {
     $('photo-preview').src = photo;
     $('photo-preview').hidden = false;
     $('photo-read').disabled = false;
-    const keep = $('photo-keep');
-    if (keep) keep.disabled = false;
+    photoKeepBtn.disabled = false;
+    photoKeep.ready();
   } catch (err) { $('photo-out').replaceChildren(say(err.message, true)); }
 });
 $('photo-read').addEventListener('click', async () => {
@@ -102,16 +119,23 @@ $('photo-read').addEventListener('click', async () => {
   } catch (e) { out.replaceChildren(say(e.message, true)); }
 });
 $('photo-keep').addEventListener('click', async (e) => {
-  try { await keepImage('photo', photo, e.target); } catch (err) { e.target.after(say(err.message, true)); }
+  try {
+    await api('POST', '/catch', { kind: 'photo', image: photo, where: where() });
+    photoKeep.done();
+    loadHome();
+  } catch (err) { e.target.after(say(err.message, true)); }
 });
 
 // --- Note ---------------------------------------------------------------------
+const noteKeep = keeper($('note-out'), $('note-keep'));
+$('note-text').addEventListener('input', () => noteKeep.ready());
 $('note-keep').addEventListener('click', async (e) => {
   const note = $('note-text').value.trim();
   if (!note) { e.target.after(say('Write the note first.', true)); return; }
   try {
     await api('POST', '/catch', { kind: 'note', note, where: where() });
-    replaceInPlace(e.target, say('Kept as a loose end.'));
+    noteKeep.done();
+    $('note-text').value = '';
     loadHome();
   } catch (err) { e.target.after(say(err.message, true)); }
 });
@@ -119,8 +143,11 @@ $('note-keep').addEventListener('click', async (e) => {
 // --- Loose ends: open one to resolve it by Type, Draw, or Read it ----------------
 function resolver(c, li) {
   const out = el('div');
+  // Resolved: the card's heading says so; the result sits where the
+  // candidates were.
+  const resolved = () => { li.classList.add('resolved'); li.querySelector('.head .meta').append(' · resolved'); };
+  const pick = (char, list) => choose(c.id, char, list).then(resolved).catch((e) => list.after(say(e.message, true)));
   const typed = el('input', { type: 'text', class: 'typebox ja', lang: 'ja', 'aria-label': 'Type the character' });
-  const pick = (char) => choose(c.id, char, li).catch((e) => out.replaceChildren(say(e.message, true)));
   const typeForm = el('form', { onsubmit: async (e) => {
     e.preventDefault();
     try {
@@ -132,7 +159,13 @@ function resolver(c, li) {
   const canvas = el('canvas', { class: 'pad', width: 600, height: 600, 'aria-label': 'Drawing area' });
   const drawBox = el('div', { hidden: true }, canvas);
   let lpad = null;
-  const readImage = (image) => readIntoFor(out, c.id, image, pick);
+  const readImage = async (image) => {
+    out.replaceChildren(say('Reading…'));
+    try {
+      const got = await api('POST', `/catch/${c.id}/read`, image ? { image } : undefined);
+      out.replaceChildren(got.candidates.length ? candidateList(got.candidates, pick) : say('No kanji from the data in it.'));
+    } catch (e) { out.replaceChildren(say(e.message, true)); }
+  };
   const buttons = el('div', { class: 'row' },
     el('button', { class: 'btn secondary', type: 'button', onclick: () => { drawBox.hidden = false; lpad = lpad || drawingPad(canvas); } }, 'Draw'),
     el('button', { class: 'btn', type: 'button', onclick: () => {
@@ -141,15 +174,6 @@ function resolver(c, li) {
       out.replaceChildren(say('Draw the character first.', true));
     } }, 'Read it'));
   return el('div', { class: 'open' }, typeForm, drawBox, buttons, out);
-}
-
-// As readInto, but a pick resolves this loose end in place.
-async function readIntoFor(out, catchId, image, pick) {
-  out.replaceChildren(say('Reading…'));
-  try {
-    const got = await api('POST', `/catch/${catchId}/read`, image ? { image } : undefined);
-    out.replaceChildren(got.candidates.length ? candidateList(got.candidates, pick) : say('No kanji from the data in it.'));
-  } catch (e) { out.replaceChildren(say(e.message, true)); }
 }
 
 function looseItem(c) {
@@ -171,8 +195,8 @@ function looseItem(c) {
   return li;
 }
 
-// Loose ends and Latest. A loose end being resolved on screen keeps its
-// place until the page is reloaded; new ones join at the end.
+// Loose ends and Latest. A loose end resolved on screen keeps its place
+// until the page is reloaded; new ones join at the end.
 async function loadHome() {
   const home = await api('GET', '/data/home');
   const list = $('loose');

@@ -64,3 +64,16 @@ test('an unknown kind, value or character is refused naming what is valid', () =
   assert.throws(() => kanji.group('radical', '215'), { status: 400, message: 'radical must be a number from 1 to 214' });
   assert.throws(() => kanji.mustGet('A'), { status: 404, message: /^character must be one of the 13108 kanji in the data/ });
 });
+
+test('a value no character has is refused naming the valid values and where they are all listed', () => {
+  assert.throws(() => kanji.group('on', 'NOT_A_READING'), { status: 404, message: 'no character in the data has on NOT_A_READING; on must be one of the 469 values in the data (ア, アイ, アク, アチ, アツ, …), all listed at /data/values/on' });
+  assert.throws(() => kanji.group('strokes', '99'), { status: 404, message: /^no character in the data has strokes 99; strokes must be one of the 33 values in the data \(1, 2, 3, .*, 30, 32, 33, 34\), all listed at \/data\/values\/strokes$/ });
+  assert.throws(() => kanji.group('kun', 'zzz'), { status: 404, message: /kun must be one of the \d+ values in the data \(あ, .*\), all listed at \/data\/values\/kun$/ });
+  assert.throws(() => kanji.group('nanori', 'x'), { status: 404, message: /nanori must be one of the \d+ values in the data .*\/data\/values\/nanori$/ });
+  assert.ok(kanji.values('on').includes('ウ'));
+  assert.ok(kanji.values('kun').includes('あめ'));
+  assert.ok(kanji.values('variant').includes('學') && kanji.values('variant').includes('学'));
+  assert.deepEqual(kanji.values('list'), ['jinmeiyo', 'joyo']);
+  assert.deepEqual(kanji.values('grade'), [1, 2, 3, 4, 5, 6, 8, 9, 10]);
+  assert.throws(() => kanji.values('colour'), { status: 400, message: 'kind must be one of list, grade, radical, strokes, on, kun, nanori, variant' });
+});

@@ -17,7 +17,8 @@ What you see when you sign in:
   **Loose ends** (open one to finish it by typing, drawing, or reading its
   picture) and **Latest** (the last ten characters caught).
 - **A page for each character**: the character, **Save** (it then reads
-  **Saved**, in the same place), where and when it was caught, and its
+  **Saved**, in the same place; opened from a new catch of a character
+  already saved, it reads **Add this catch**), where and when it was caught, and its
   facts under the names a Japanese reader knows them by: 常用漢字 or
   人名用漢字, 学年, 部首, 画数, 音読み, 訓読み, 名乗り, 異体字. Every fact is
   a link to the group of characters that share it.
