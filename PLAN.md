@@ -69,3 +69,29 @@
   on the rented machine need `FONTCONFIG_FILE` pointing at a scratch Noto
   Sans JP until the machine has a Japanese font. Report:
   `docs/reports/kanji-one-report.md`.
+
+## Close-out: kanji-two (22 Oct 2026)
+
+- **What stands.** Live at https://kanji-study-dan.fly.dev from pull
+  request #3 (merge fa0d7ed) and Deploy run 39796398216: meanings from
+  KANJIDIC2 on the character page and under candidates (10,384 of 13,108
+  characters); 勒 marked 人名用 by a sourced override (864); Remove with Undo
+  on loose ends; the Explore page (Themes, Ask, Earlier).
+- **The new column and table.** `catches.deleted_at` (a removed loose end
+  is marked, never deleted); `opens.group_kind` and `opens.group_value`
+  (a group opened from an exploration, with `char` ''); table
+  `explorations` (id, question, model, reading, stops, dropped,
+  created_at, took_ms, error). All by `CREATE TABLE IF NOT EXISTS` /
+  `ALTER TABLE … ADD COLUMN` at start.
+- **Explore and its model use.** Themes are computed by code in
+  `lib/explore.js` (10 ids). Ask sends Dan's question to
+  `anthropic/claude-sonnet-4.6` through OpenRouter (90 s, 1,500 tokens);
+  the server keeps only groups and characters the data holds, labels them
+  from the data, and shows the model's own sentences only under "In the
+  model's words".
+- **Owed.** The `sqlite3` `deny` entry in `.claude/settings.json`, for a
+  session in Accept edits.
+- **What the next session needs.** Dan's judgment of real Ask results
+  (the model is one constant); themes beyond KANJIDIC2 still need a
+  sourced dataset; "a next character with a reason" can now also read
+  group opens. Report: `docs/reports/kanji-two-report.md`.
