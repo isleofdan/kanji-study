@@ -16,24 +16,29 @@ function fact(name, ...values) {
   return el('div', {}, el('dt', { lang: 'ja' }, name), el('dd', {}, shown.length ? shown : el('span', { class: 'muted' }, '—')));
 }
 
+// Opened from a typed catch (?catch=…), the button first resolves that
+// catch to this character: "Save" when it is not saved yet, "Add this
+// catch" when it already is (a repeated catch keeps the first save and its
+// first catch). Only after that does a saved character's button unsave.
+let pendingCatch = fromCatch;
+
 function showSaved(saved) {
-  saveBtn.textContent = saved ? 'Saved' : 'Save';
-  saveBtn.classList.toggle('is-saved', saved);
-  saveBtn.setAttribute('aria-pressed', String(saved));
+  const adding = saved && pendingCatch;
+  saveBtn.textContent = adding ? 'Add this catch' : saved ? 'Saved' : 'Save';
+  saveBtn.classList.toggle('is-saved', saved && !adding);
+  saveBtn.setAttribute('aria-pressed', String(saved && !adding));
   saveBtn.dataset.saved = saved ? '1' : '';
 }
 
-// Save keeps its place: the button itself becomes "Saved" (rule 3). Saving
-// from a typed catch resolves that catch too.
-let pendingCatch = fromCatch;
+// Save keeps its place: the button itself becomes "Saved" (rule 3).
 saveBtn.addEventListener('click', async () => {
   saveBtn.disabled = true;
   const say = document.getElementById('say');
   say.textContent = '';
   try {
     let got;
-    if (saveBtn.dataset.saved) got = await api('POST', '/unsave', { char });
-    else if (pendingCatch) { got = await api('POST', `/catch/${pendingCatch}/choose`, { char }); pendingCatch = null; }
+    if (pendingCatch) { got = await api('POST', `/catch/${pendingCatch}/choose`, { char }); pendingCatch = null; }
+    else if (saveBtn.dataset.saved) got = await api('POST', '/unsave', { char });
     else got = await api('POST', '/save', { char });
     showSaved(got.saved);
   } catch (e) {

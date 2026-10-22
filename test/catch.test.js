@@ -223,6 +223,34 @@ test('a note loose end is resolved by typing (no catch made) or by a drawing rea
   assert.equal(img.headers.get('content-type'), 'image/png');
 });
 
+test('an empty group answers 404 naming the valid values; /data/values lists them', async () => {
+  const r = await json('GET', '/data/group/on/NOT_A_READING');
+  assert.equal(r.status, 404);
+  assert.match((await r.json()).error, /^no character in the data has on NOT_A_READING; on must be one of the 469 values in the data \(ア, .*\), all listed at \/data\/values\/on$/);
+  const v = await (await json('GET', '/data/values/on')).json();
+  assert.equal(v.count, 469);
+  assert.ok(v.values.includes('ショウ'));
+  const bad = await json('GET', '/data/values/colour');
+  assert.equal(bad.status, 400);
+  assert.deepEqual(await bad.json(), { error: 'kind must be one of list, grade, radical, strokes, on, kun, nanori, variant' });
+});
+
+test('a repeated catch of a saved character resolves the new catch and keeps the first save', async () => {
+  const first = await (await json('POST', '/catch', { kind: 'typed', text: '霞' })).json();
+  await json('POST', `/catch/${first.catch.id}/choose`, { char: '霞' });
+  const again = await (await json('POST', '/catch', { kind: 'typed', text: '霞' })).json();
+  const r = await (await json('POST', `/catch/${again.catch.id}/choose`, { char: '霞' })).json();
+  assert.equal(r.saved, true);
+  assert.equal(r.catch.char, '霞');
+  const db = records();
+  assert.deepEqual(db.prepare("SELECT first_catch_id FROM saved WHERE char = '霞'").all().map((x) => x.first_catch_id), [first.catch.id]);
+  db.close();
+  const home = await (await json('GET', '/data/home')).json();
+  assert.ok(!home.loose.some((c) => c.id === again.catch.id), 'the repeated catch is not left a loose end');
+  const char = await (await json('GET', `/data/char/${encodeURIComponent('霞')}`)).json();
+  assert.deepEqual(char.catches.map((c) => c.id), [again.catch.id, first.catch.id]);
+});
+
 test('reopening the home page makes no model request', async () => {
   const before = await calls();
   for (let i = 0; i < 3; i++) {

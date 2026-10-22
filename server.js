@@ -198,6 +198,13 @@ route('GET', /^\/data\/candidates$/, (req, res) => {
   sendJson(res, 200, { candidates: kanji.inText(new URL(req.url, 'http://x').searchParams.get('text')) });
 });
 
+// Every value of a fact kind that some character in the data has.
+route('GET', /^\/data\/values\/([^/]+)$/, (req, res, m) => {
+  const kind = param(m[1]);
+  const all = kanji.values(kind);
+  sendJson(res, 200, { kind, count: all.length, values: all });
+});
+
 route('GET', /^\/data\/home$/, (req, res) => sendJson(res, 200, { loose: db.looseEnds().map(shown), latest: db.latest(10).map(shown) }));
 
 route('GET', /^\/data\/yours$/, (req, res) => sendJson(res, 200, { saved: db.savedList() }));

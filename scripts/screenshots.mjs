@@ -13,6 +13,7 @@ import { chromium } from 'playwright';
 import { spawn } from 'node:child_process';
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { crc32, deflateSync } from 'node:zlib';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -60,6 +61,31 @@ const check = (name, ok, detail = '') => { console.log(`${ok ? 'ok  ' : 'FAIL'} 
 const noSideways = async (page) => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
 const top = async (locator) => Math.round((await locator.boundingBox()).y * 100) / 100;
 
+// One stroke on the drawing pad, as a finger would.
+async function stroke(page) {
+  const pad = await page.locator('#pad').boundingBox();
+  await page.mouse.move(pad.x + pad.width * 0.2, pad.y + pad.height * 0.3);
+  await page.mouse.down();
+  await page.mouse.move(pad.x + pad.width * 0.8, pad.y + pad.height * 0.3, { steps: 8 });
+  await page.mouse.move(pad.x + pad.width * 0.5, pad.y + pad.height * 0.8, { steps: 8 });
+  await page.mouse.up();
+}
+
+// A small grey PNG of the given size, as a picked photo.
+function png(width, height) {
+  const chunk = (type, data) => {
+    const len = Buffer.alloc(4); len.writeUInt32BE(data.length);
+    const td = Buffer.concat([Buffer.from(type, 'ascii'), data]);
+    const crc = Buffer.alloc(4); crc.writeUInt32BE(crc32(td));
+    return Buffer.concat([len, td, crc]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0); ihdr.writeUInt32BE(height, 4); ihdr[8] = 8; ihdr[9] = 0;
+  const rows = Buffer.alloc((width + 1) * height, 0x90);
+  for (let y = 0; y < height; y++) rows[y * (width + 1)] = 0;
+  return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(rows)), chunk('IEND', Buffer.alloc(0))]);
+}
+
 await up(`http://127.0.0.1:${MOCK_PORT}/calls`);
 const browser = await chromium.launch();
 for (const [size, viewport] of Object.entries(SIZES)) {
@@ -98,12 +124,7 @@ for (const [size, viewport] of Object.entries(SIZES)) {
     // Draw, then "Read it": the stand-in answers 雨, 峠 and 龘; only the
     // first two are in the data.
     await page.click('[data-panel=draw]');
-    const pad = await page.locator('#pad').boundingBox();
-    await page.mouse.move(pad.x + pad.width * 0.2, pad.y + pad.height * 0.3);
-    await page.mouse.down();
-    await page.mouse.move(pad.x + pad.width * 0.8, pad.y + pad.height * 0.3, { steps: 8 });
-    await page.mouse.move(pad.x + pad.width * 0.5, pad.y + pad.height * 0.8, { steps: 8 });
-    await page.mouse.up();
+    await stroke(page);
     await page.fill('#where', 'film subtitles');
     await page.click('#draw-read');
     await page.waitForSelector('#draw-out .candidates');
@@ -178,6 +199,76 @@ for (const [size, viewport] of Object.entries(SIZES)) {
     const yours = await page.$$eval('#yours a', (as) => as.map((a) => a.textContent));
     check(`${tag}: Yours shows 峠 then 雨, newest first`, yours.join('') === '峠雨', yours.join(' '));
     await shot(page, 'yours');
+
+    // Keep, then the next catch: Keep comes back, twice over, for Note,
+    // Draw and Photo.
+    await page.goto(`${base}/`);
+    await page.waitForSelector('#loose li');
+    const looseCount = async () => page.$$eval('#loose li', (l) => l.length);
+    const startLoose = await looseCount();
+    await page.click('[data-panel=note]');
+    for (const note of ['first note: a menu, 鰆?', 'second note: the station sign']) {
+      await page.fill('#note-text', note);
+      check(`${tag}: Note's Keep is there for "${note.slice(0, 12)}"`, await page.isVisible('#note-keep'));
+      await page.click('#note-keep');
+      await page.waitForSelector('#note-out .say');
+    }
+    await page.click('[data-panel=draw]');
+    for (let i = 0; i < 2; i++) {
+      await stroke(page);
+      check(`${tag}: Draw's Keep is there for drawing ${i + 1}`, await page.isVisible('#draw-keep'));
+      await page.click('#draw-keep');
+      await page.waitForSelector('#draw-out .say');
+    }
+    await page.click('[data-panel=photo]');
+    for (let i = 0; i < 2; i++) {
+      await page.setInputFiles('#photo-file', { name: `photo-${i}.png`, mimeType: 'image/png', buffer: png(320 + i, 240) });
+      await page.waitForSelector('#photo-keep:not([disabled])');
+      check(`${tag}: Photo's Keep is there for photo ${i + 1}`, await page.isVisible('#photo-keep'));
+      await page.click('#photo-keep');
+      await page.waitForSelector('#photo-out .say');
+    }
+    await page.waitForFunction((n) => document.querySelectorAll('#loose li').length === n, startLoose + 6);
+    check(`${tag}: two notes, two drawings and two photos kept make six loose ends`, (await looseCount()) === startLoose + 6, `${startLoose} → ${await looseCount()}`);
+
+    // Resolving a later loose end by typing: the result takes the place of
+    // the candidates he tapped (rule 3).
+    await page.reload();
+    await page.waitForSelector('#loose li');
+    const row = page.locator('#loose li').nth(2);
+    await row.locator('.head').click();
+    await row.locator('.open input').fill('鰆');
+    await row.locator('.open button[type=submit]').click();
+    await row.locator('.open .candidates').waitFor();
+    await row.locator('.open .candidates button').first().scrollIntoViewIfNeeded();
+    const looseListTop = await top(row.locator('.open .candidates'));
+    await row.locator('.open .candidates button[data-char="鰆"]').click();
+    await row.locator('[data-chosen="鰆"]').waitFor();
+    const looseResultTop = await top(row.locator('[data-chosen="鰆"]'));
+    check(`${tag}: resolving a later loose end keeps its place`, Math.abs(looseResultTop - looseListTop) < 1,
+      `candidates top ${looseListTop} px, result top ${looseResultTop} px, ${Math.abs(looseResultTop - looseListTop)} px apart`);
+
+    // A repeated catch of 峠, already saved: "Add this catch" resolves it
+    // and becomes "Saved" in place; 峠 stays saved.
+    await page.goto(`${base}/`);
+    await page.click('[data-panel=type]');
+    await page.fill('#typed', '峠');
+    await page.click('#type-form button[type=submit]');
+    await page.click('#type-out .candidates a');
+    await page.waitForURL(/\/k\//);
+    await page.waitForSelector('#save:not([disabled])');
+    const addLabel = await page.textContent('#save');
+    const addTop = await top(page.locator('#save'));
+    await page.click('#save');
+    await page.waitForSelector('#save.is-saved');
+    const addedTop = await top(page.locator('#save'));
+    const state = await page.evaluate(async () => ({
+      yours: (await (await fetch('/data/yours', { headers: { accept: 'application/json' } })).json()).saved.map((s) => s.char),
+      loose: (await (await fetch('/data/home', { headers: { accept: 'application/json' } })).json()).loose.filter((c) => c.kind === 'typed').length,
+    }));
+    check(`${tag}: a repeated catch of a saved character offers "Add this catch", then "Saved" in place`,
+      addLabel === 'Add this catch' && (await page.textContent('#save')) === 'Saved' && addedTop === addTop, `"${addLabel}" top ${addTop} px, "Saved" top ${addedTop} px`);
+    check(`${tag}: it stays saved and leaves no typed loose end`, state.yours.includes('峠') && state.loose === 0, `Yours ${state.yours.join(' ')}, typed loose ends ${state.loose}`);
 
     await page.goto(`${base}/status`);
     check(`${tag}: status shows "alive since"`, (await page.textContent('body')).includes('alive since '));

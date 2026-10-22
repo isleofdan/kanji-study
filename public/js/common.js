@@ -97,7 +97,10 @@ function reducePhoto(file, maxSide = 1600) {
   });
 }
 
-// A row of candidates as large characters to tap.
+// A row of candidates as large characters to tap; onPick(char, list) gets
+// the list itself, so its result can take the list's place.
 function candidateList(chars, onPick) {
-  return el('ul', { class: 'chars big candidates' }, chars.map((c) => el('li', {}, el('button', { type: 'button', lang: 'ja', 'data-char': c, onclick: () => onPick(c) }, c))));
+  const list = el('ul', { class: 'chars big candidates' });
+  list.append(...chars.map((c) => el('li', {}, el('button', { type: 'button', lang: 'ja', 'data-char': c, onclick: () => onPick(c, list) }, c))));
+  return list;
 }
