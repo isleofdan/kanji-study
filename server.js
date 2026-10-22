@@ -13,6 +13,9 @@ const app = require('./lib/app');
 const auth = require('./lib/auth');
 const upstream = require('./lib/upstream');
 const kanji = require('./lib/kanji');
+const db = require('./lib/db');
+const images = require('./lib/images');
+const vision = require('./lib/vision');
 const ratelimit = require('./lib/ratelimit');
 const { execFileSync } = require('node:child_process');
 const { sendJson, sendHtml, sendText, redirect, readJson, serveStatic, escapeHtml } = require('./lib/http');
@@ -89,6 +92,103 @@ const routes = [];
 function route(method, pattern, run) { routes.push({ method, pattern, run }); }
 
 route('GET', /^\/$/, (req, res) => sendHtml(res, 200, page('index.html')));
+
+// --- catches, saving, and the data the pages read ---------------------------
+// Every fact comes from lib/kanji.js (KANJIDIC2); the model only reads a
+// drawing or a photo when Dan presses "Read it" (lib/vision.js).
+
+const IMAGE_BODY_MAX = 8 * 1024 * 1024;
+const text = (v, max = 500) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null);
+const param = (s) => { try { return decodeURIComponent(s); } catch { return s; } };
+
+// A catch as the pages read it: its image as an address on this site.
+const shown = (c) => ({ ...c, image: c.image ? `/img/${c.image}` : null });
+
+function mustChar(value) {
+  if (typeof value !== 'string' || !value) throw Object.assign(new Error('char is required: one kanji from the data (KANJIDIC2)'), { status: 400 });
+  return kanji.mustGet(value).c;
+}
+
+route('POST', /^\/catch$/, async (req, res) => {
+  const body = await readJson(req, IMAGE_BODY_MAX);
+  const kind = body.kind;
+  if (!db.CATCH_KINDS.includes(kind)) throw Object.assign(new Error(`kind must be one of ${db.CATCH_KINDS.join(', ')}`), { status: 400 });
+  const where = text(body.where);
+  if (kind === 'typed') {
+    const typed = text(body.text, 200);
+    const candidates = kanji.inText(typed);
+    if (!candidates.length) return sendJson(res, 200, { catch: null, candidates: [], message: 'No kanji from the data in what you typed.' });
+    const c = db.addCatch({ kind, note: typed, where });
+    return sendJson(res, 200, { catch: shown(c), candidates });
+  }
+  if (kind === 'note') {
+    const note = text(body.note);
+    if (!note) throw Object.assign(new Error('note is required for a note catch'), { status: 400 });
+    return sendJson(res, 200, { catch: shown(db.addCatch({ kind, note, where })), candidates: [] });
+  }
+  if (!body.image) throw Object.assign(new Error(`image is required for a ${kind} catch`), { status: 400 });
+  const image = images.store(body.image);
+  return sendJson(res, 200, { catch: shown(db.addCatch({ kind, note: text(body.note), where, image })), candidates: [] });
+});
+
+// Sends the catch's image to the model, once per press. The catch stays a
+// loose end until Dan chooses; a failure answers the line saying which.
+route('POST', /^\/catch\/([^/]+)\/read$/, async (req, res, m) => {
+  const c = db.getCatch(m[1]);
+  if (!c.image) throw Object.assign(new Error(`catch ${c.id} has no image to read; only drawn and photo catches can be read`), { status: 400 });
+  try {
+    const got = await vision.read(c.kind === 'photo' ? 'photo' : 'drawn', images.dataUrl(c.image));
+    return sendJson(res, 200, { catch: shown(c), candidates: got.candidates, dropped: got.dropped });
+  } catch (e) {
+    if (!(e instanceof vision.ReadError)) throw e;
+    return sendJson(res, e.status, { error: e.message, catch: shown(db.getCatch(c.id)) });
+  }
+});
+
+route('POST', /^\/catch\/([^/]+)\/choose$/, async (req, res, m) => {
+  const body = await readJson(req);
+  db.getCatch(m[1]);
+  const char = mustChar(body.char);
+  const c = db.choose(m[1], char);
+  return sendJson(res, 200, { catch: shown(c), char, saved: db.isSaved(char) });
+});
+
+route('POST', /^\/save$/, async (req, res) => {
+  const char = mustChar((await readJson(req)).char);
+  db.save(char);
+  return sendJson(res, 200, { char, saved: db.isSaved(char) });
+});
+
+route('POST', /^\/unsave$/, async (req, res) => {
+  const char = mustChar((await readJson(req)).char);
+  db.unsave(char);
+  return sendJson(res, 200, { char, saved: db.isSaved(char) });
+});
+
+route('GET', /^\/data\/char\/([^/]+)$/, (req, res, m) => {
+  const k = kanji.mustGet(param(m[1]));
+  return sendJson(res, 200, { kanji: k, saved: db.isSaved(k.c), catches: db.catchesFor(k.c).map(shown), source: kanji.header.licence });
+});
+
+route('GET', /^\/data\/group\/([^/]+)\/([^/]+)$/, (req, res, m) => {
+  const kind = param(m[1]);
+  const value = param(m[2]);
+  const members = kanji.group(kind, value);
+  const saved = db.savedSet();
+  return sendJson(res, 200, {
+    kind, value, label: kanji.label(kind, value), count: members.length,
+    chars: members.map((k) => ({ c: k.c, saved: saved.has(k.c) })),
+    source: kanji.header.licence,
+  });
+});
+
+route('GET', /^\/data\/home$/, (req, res) => sendJson(res, 200, { loose: db.looseEnds().map(shown), latest: db.latest(10).map(shown) }));
+
+route('GET', /^\/data\/yours$/, (req, res) => sendJson(res, 200, { saved: db.savedList() }));
+
+route('GET', /^\/img\/([^/]+)$/, (req, res, m) => {
+  if (!images.validName(m[1]) || !serveStatic(res, db.IMAGES, `/${m[1]}`)) return sendJson(res, 404, { error: 'no such image' });
+});
 
 route('GET', /^\/status$/, (req, res) => {
   const { calls, lastError: e } = upstream.state();
