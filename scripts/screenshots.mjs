@@ -135,11 +135,11 @@ for (const [size, viewport] of Object.entries(SIZES)) {
     // Choosing a candidate: the result takes the list's place on the screen
     // (measured once the list is in view, as Dan would see it to tap).
     await page.locator('#draw-out .candidates button[data-char="雨"]').scrollIntoViewIfNeeded();
-    const listTop = await top(page.locator('#draw-out .candidates'));
+    const candTop = await top(page.locator('#draw-out .candidates button[data-char="雨"]'));
     await page.click('#draw-out .candidates button[data-char="雨"]');
     await page.waitForSelector('#draw-out [data-chosen="雨"]');
     const resultTop = await top(page.locator('#draw-out [data-chosen="雨"]'));
-    check(`${tag}: choosing a candidate keeps its place`, Math.abs(resultTop - listTop) < 1, `candidates top ${listTop} px, result top ${resultTop} px, ${Math.abs(resultTop - listTop)} px apart`);
+    check(`${tag}: choosing a candidate keeps its place`, Math.abs(resultTop - candTop) < 1, `pressed 雨 top ${candTop} px, result top ${resultTop} px, ${Math.abs(resultTop - candTop)} px apart`);
 
     // A note, kept as a loose end.
     await page.click('[data-panel=note]');
@@ -237,16 +237,21 @@ for (const [size, viewport] of Object.entries(SIZES)) {
     await page.waitForSelector('#loose li');
     const row = page.locator('#loose li').nth(2);
     await row.locator('.head').click();
-    await row.locator('.open input').fill('鰆');
+    // Twelve candidates wrap onto later rows at both sizes; he taps the
+    // last, 鰆.
+    await row.locator('.open input').fill('雨山川海空森林木水火土鰆');
     await row.locator('.open button[type=submit]').click();
     await row.locator('.open .candidates').waitFor();
-    await row.locator('.open .candidates button').first().scrollIntoViewIfNeeded();
-    const looseListTop = await top(row.locator('.open .candidates'));
-    await row.locator('.open .candidates button[data-char="鰆"]').click();
+    const pressed = row.locator('.open .candidates button[data-char="鰆"]');
+    await pressed.scrollIntoViewIfNeeded();
+    const firstRowTop = await top(row.locator('.open .candidates button').first());
+    const pressedTop = await top(pressed);
+    check(`${tag}: 鰆 sits on a later row of candidates than the first`, pressedTop > firstRowTop + 10, `first ${firstRowTop} px, 鰆 ${pressedTop} px`);
+    await pressed.click();
     await row.locator('[data-chosen="鰆"]').waitFor();
     const looseResultTop = await top(row.locator('[data-chosen="鰆"]'));
-    check(`${tag}: resolving a later loose end keeps its place`, Math.abs(looseResultTop - looseListTop) < 1,
-      `candidates top ${looseListTop} px, result top ${looseResultTop} px, ${Math.abs(looseResultTop - looseListTop)} px apart`);
+    check(`${tag}: resolving a later loose end from a second-row candidate keeps its place`, Math.abs(looseResultTop - pressedTop) < 1,
+      `pressed 鰆 top ${pressedTop} px, result top ${looseResultTop} px, ${Math.abs(looseResultTop - pressedTop)} px apart`);
 
     // A repeated catch of 峠, already saved: "Add this catch" resolves it
     // and becomes "Saved" in place; 峠 stays saved.

@@ -32,15 +32,24 @@ const charLink = (c, query = '') => `/k/${encodeURIComponent(c)}${query}`;
 
 // Replaces `node` with `next` and keeps `next` at the same height on the
 // screen as `node` was (CLAUDE.md, rule 3: a control keeps Dan's place).
-// The result keeps at least the replaced control's height, so the page does
-// not get shorter under him (a shorter page near its foot makes the browser
-// pull the scroll back, moving everything down).
-function replaceInPlace(node, next) {
+// `anchor` is what he pressed (by default `node` itself): `next` is placed
+// where the anchor's top was, even when the anchor sat lower down inside
+// `node` (a candidate on a second row). The region keeps at least the
+// replaced node's height and margins, so the page does not get shorter
+// under him (a shorter page near its foot makes the browser pull the scroll
+// back, moving everything down).
+function replaceInPlace(node, next, anchor = node) {
   const box = node.getBoundingClientRect();
-  const before = box.top;
-  next.style.minHeight = `${box.height}px`;
-  next.style.boxSizing = 'border-box';
-  node.replaceWith(next);
+  const before = anchor.getBoundingClientRect().top;
+  const style = getComputedStyle(node);
+  const region = document.createElement('div');
+  region.style.display = 'flow-root';
+  region.style.minHeight = `${box.height}px`;
+  region.style.margin = `${style.marginTop} 0 ${style.marginBottom}`;
+  next.style.marginTop = `${before - box.top}px`;
+  next.style.marginBottom = '0';
+  region.append(next);
+  node.replaceWith(region);
   const after = next.getBoundingClientRect().top;
   if (after !== before) window.scrollBy(0, after - before);
   return next;
@@ -97,10 +106,11 @@ function reducePhoto(file, maxSide = 1600) {
   });
 }
 
-// A row of candidates as large characters to tap; onPick(char, list) gets
-// the list itself, so its result can take the list's place.
+// A row of candidates as large characters to tap; onPick(char, list,
+// button) gets the list, whose place the result takes, and the button he
+// pressed, where the result is put.
 function candidateList(chars, onPick) {
   const list = el('ul', { class: 'chars big candidates' });
-  list.append(...chars.map((c) => el('li', {}, el('button', { type: 'button', lang: 'ja', 'data-char': c, onclick: () => onPick(c, list) }, c))));
+  list.append(...chars.map((c) => el('li', {}, el('button', { type: 'button', lang: 'ja', 'data-char': c, onclick: (e) => onPick(c, list, e.currentTarget) }, c))));
   return list;
 }
