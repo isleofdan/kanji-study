@@ -41,3 +41,31 @@
 ## Close-out notes
 
 (Each session appends its own, in order.)
+
+## Close-out: kanji-one (22 Oct 2026)
+
+- **What stands.** Live at https://kanji-study-dan.fly.dev (Fly app
+  `kanji-study-dan`, Tokyo, volume `kanji_data` 1 GB at `/data`), from
+  pull request #1 (merge a1210d7) and Deploy run 39725811460. Dan used
+  every screen on his phone: Type and Save, the 部首 group, Draw read by the
+  real model, a note kept as a loose end, Yours.
+- **The data and its licence.** `data/kanji.json` from KANJIDIC2
+  (database version 2026-295): 13,108 characters, 常用 2,136, 人名用 863,
+  978 variant references left out. CC BY-SA 4.0 from the Electronic
+  Dictionary Research and Development Group; the licence line is in the
+  file's header, on the status page and in `README.md`. The official
+  人名用 count is 864 since 26 Jun 2026 (勒 added); KANJIDIC2 has not caught
+  up.
+- **The tables.** `catches` (kind, char, note, where_seen, image,
+  created_at, resolved_at), `saved` (char, first_catch_id, saved_at),
+  `opens` (char, from_kind, from_value, opened_at).
+- **The pages.** Catch `/`, character `/k/<char>`, group
+  `/g/<kind>/<value>`, Yours `/yours`, plus the kit's sign-in and status.
+- **Owed.** The `sqlite3` `deny` entry in `.claude/settings.json`, for a
+  session in Accept edits.
+- **What the next session needs.** A sourced override marking 勒 as 人名用
+  in `scripts/build-kanji.mjs`; "a next character with a reason" built on
+  `catches`, `saved` and `opens` joined to the KANJIDIC2 groups; screenshots
+  on the rented machine need `FONTCONFIG_FILE` pointing at a scratch Noto
+  Sans JP until the machine has a Japanese font. Report:
+  `docs/reports/kanji-one-report.md`.
