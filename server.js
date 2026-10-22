@@ -268,6 +268,10 @@ route('GET', /^\/g\/([^/]+)\/([^/]+)$/, (req, res, m) => {
 
 route('GET', /^\/yours$/, (req, res) => sendHtml(res, 200, page('yours.html')));
 
+// What another app shared, held by the service worker (public/sw.js); the
+// page's script reads it and saves it (public/js/share.js).
+route('GET', /^\/share$/, (req, res) => sendHtml(res, 200, page('share.html')));
+
 // --- Explore: themes computed by code (lib/explore.js) -------------------------
 
 route('GET', /^\/explore$/, (req, res) => sendHtml(res, 200, page('explore.html')));
@@ -339,6 +343,10 @@ async function handle(req, res) {
   if (p === '/login' && req.method === 'POST') return handleLogin(req, res);
   if (p === '/logout') return redirect(res, '/login', { 'set-cookie': auth.clearCookie({ secure: SECURE_COOKIE }) });
   if (req.method === 'GET' && OPEN_FILES.has(p) && serveStatic(res, PUBLIC, p)) return;
+  // A share that reaches the server (a browser without the service worker):
+  // signed in or out, it is sent on to the share page, reading and saving
+  // nothing; that page then says nothing was shared.
+  if (p === '/share' && req.method === 'POST') { req.resume(); return redirect(res, '/share'); }
 
   if (!CONFIGURED || !auth.cookieOk(req, COOKIE_SECRET)) {
     if (p.startsWith('/api/') || wantsJson(req)) return sendJson(res, 401, { error: 'sign in first' });

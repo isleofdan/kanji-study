@@ -106,6 +106,51 @@ function reducePhoto(file, maxSide = 1600) {
   });
 }
 
+// --- catching, shared by the Catch page and the share page ------------------
+// Each tells the page that the records changed ('catches-changed'), so a page
+// listing them can follow.
+
+const say = (text, bad = false) => el('p', { class: bad ? 'say bad' : 'say' }, text);
+const catchesChanged = () => document.dispatchEvent(new Event('catches-changed'));
+
+// The result of choosing a candidate: what took the place of the control.
+const chosen = (char, saved) => el('div', { class: 'result', 'data-chosen': char },
+  el('span', { class: 'ja', lang: 'ja' }, char), saved ? ' saved to Yours. ' : ' chosen. ', el('a', { href: charLink(char) }, 'Open its page'));
+
+// Resolves the catch; the result takes the place of `control`, the list of
+// candidates, at the height of `pressed`, the candidate he tapped (rule 3).
+async function choose(catchId, char, control, pressed) {
+  const got = await api('POST', `/catch/${catchId}/choose`, { char });
+  replaceInPlace(control, chosen(got.char, got.saved), pressed);
+  catchesChanged();
+  return got;
+}
+
+// "Read it": shows "Reading…", then the candidates, or the line saying why
+// not. A pick resolves the catch in place of the list; `after` runs then.
+async function readInto(out, catchId, image, after = () => {}) {
+  const reading = say('Reading…');
+  out.replaceChildren(reading);
+  try {
+    const got = await api('POST', `/catch/${catchId}/read`, image ? { image } : undefined);
+    if (!got.candidates.length) { reading.textContent = 'No kanji from the data in it. It is kept as a loose end.'; return; }
+    const list = candidateList(got.candidates, (c, l, b) => choose(catchId, c, l, b).then(after).catch((e) => l.after(say(e.message, true))), got.meaning);
+    out.replaceChildren(el('p', { class: 'say' }, 'Tap the one you saw:'), list);
+  } catch (e) {
+    out.replaceChildren(say(`${e.message} It is kept as a loose end.`, true));
+  }
+  catchesChanged();
+}
+
+// A "Keep" control that, once pressed, shows "Kept as a loose end." in its
+// place, and comes back as soon as he starts the next catch (`ready()`).
+function keeper(out, button) {
+  return {
+    done() { replaceInPlace(button, say('Kept as a loose end.')); },
+    ready() { button.style.minHeight = ''; out.replaceChildren(button); },
+  };
+}
+
 // Asks the server to explore `question` (the model is called only now).
 // `button` is replaced in place by "Thinking…", then by the result: a link
 // to the saved exploration, or the failure line with the button again
