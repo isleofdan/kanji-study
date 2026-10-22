@@ -16,30 +16,46 @@ The 3 Oct 2026 afternoon run used a fresh builder on the faster CPU.
 | Check | What it proves |
 | - | - |
 | syntax | Every `.js`, `.mjs` and `.cjs` file outside `node_modules` parses (`node --check`, file by file). |
-| tests | `npm test`: the gate, the alive line, the status page and `lib/upstream.js` (the kit's 8), plus this app's 20: the kanji data, its groups and the refusals that name valid values (`test/kanji.test.js`, 5), catches, reading against the stand-in model, choosing, a repeated catch of a saved character, saving, the values lists and the opens record against a real server (`test/catch.test.js`, 14), and the missing model key (`test/vision.test.js`, 1). 28 tests. |
-| screenshots | `npm run screenshots`: every screen at phone (412×915) and computer (1280×800) size, in light and dark, signing in through the form, with no sideways scrolling; it walks Catch empty, Draw after "Read it", a character page, a group page with the origin outlined, Catch with loose ends and latest, Yours and Status; it measures that "Save"→"Saved", choosing a candidate (the result's top against the pressed candidate's top), resolving a later loose end from a candidate on a later row, and "Add this catch"→"Saved" keep their place, and that Keep comes back for a second note, drawing and photo (147 checks, 30 images). Needs Playwright's browser. |
+| tests | `npm test`: the gate, the alive line, the status page and `lib/upstream.js` (the kit's 8), plus this app's 37: the kanji data, meanings, the 864 人名用 with 勒, its groups and the refusals that name valid values (`test/kanji.test.js`, 6), catches, reading against the stand-in model, choosing, a repeated catch of a saved character, saving, the values lists, the opens record, meanings on the character page and in every candidates answer, Remove and restore (`deleted_at`, the home answer, the character page's catches, unknown ids) and the `deleted_at` column added to a table made before it (`test/catch.test.js`, 17), Explore: every theme id and the refusal naming them, each data theme's contents, each records theme absent on empty records and present only once its own fixture exists, Ask against the stand-in (three of five kept, `dropped` 2, labels from the data), a model failure and a missing key saved on the row, the question limits and unknown exploration ids, Earlier, and the opens rows from a theme and from an exploration (`test/explore.test.js`, 13), and the missing model key for "Read it" (`test/vision.test.js`, 1). 45 tests. |
+| screenshots | `npm run screenshots`: every screen at phone (412×915) and computer (1280×800) size, in light and dark, signing in through the form, with no sideways scrolling; it walks Catch empty, Draw after "Read it", a character page with its Meaning line, a group page with the origin outlined, Catch with loose ends and latest, Yours, Type candidates with their meanings, a loose end before and after Remove, Explore with themes, a theme page, an exploration, Explore with "Earlier", and Status; it measures that "Save"→"Saved", choosing a candidate (the result's top against the pressed candidate's top), resolving a later loose end from a candidate on a later row, "Add this catch"→"Saved", Remove→"Removed · Undo"→Undo, and "Explore"→"Thinking…"→the result's link keep their place, and that Keep comes back for a second note, drawing and photo (231 checks, 58 images). Needs Playwright's browser. |
 
 The model in every check is the stand-in, `scripts/mock-openrouter.mjs`
 (after the Hebrew reader's), set by `OPENROUTER_URL`; no check calls the
-real OpenRouter. It answers 雨 and 峠, which are in the data, and 龘, which
-is not; the server keeps the first two. Tests and screenshots each use an
-empty records folder of their own, never `./var`.
+real OpenRouter. For a picture it answers 雨 and 峠, which are in the data,
+and 龘, which is not; the server keeps the first two. For an Explore
+question it answers two groups (部首 173, 音読み ショウ) and one character
+(峠) the data holds, a group of an unknown kind and a character not in the
+data; the server keeps three and drops two. It can be told to wait before
+answering, so the screenshots see "Thinking…". Tests and screenshots each
+use an empty records folder of their own, never `./var`.
 
-Counts as last run (kanji-one, 22 Oct 2026, the rented Linux machine,
-Node 24.21.0): `npm test` 28 tests, 28 passed; `npm run screenshots`
-147 checks, 147 passed; `npm run check` ended
-`check: all passed: syntax, tests, screenshots` in 39 s (syntax 0.92 s,
-tests 1.96 s, screenshots 35.83 s).
+Counts as last run (kanji-two, 22 Oct 2026, the rented Linux machine,
+Node 24.21.0): `npm test` 45 tests, 45 passed; `npm run screenshots`
+231 checks, 231 passed, 58 images; `npm run check` ended
+`check: all passed: syntax, tests, screenshots` in 77 s (syntax 1.10 s,
+tests 10.11 s, screenshots 65.29 s).
 
-"Save" to "Saved" at 412 px width (phone, light and dark): "Save" top
-146.09 px, "Saved" top 146.09 px, 0 px apart. Choosing a candidate at
-412 px: pressed 雨 top 513 px, result top 513 px, 0 px apart. Resolving
-the third loose end by typing twelve kanji and tapping the last, 鰆, on a
-later row, at 412 px: first candidate top 39.5 px, pressed 鰆 top
-401.52 px, result top 401.52 px, 0 px apart. A repeated catch of a saved
-character: "Add this catch" top 146.09 px, "Saved" top 146.09 px. At
-1280 px: 162.09 → 162.09 px, 392.5 → 392.5 px, and 鰆 (first row 256.5 px)
-354.84 → 354.84 px.
+Remove on a loose end at 412 px width (phone, light and dark): loose end
+row top 578 px, "Removed · Undo" top 578 px, 0 px apart; Undo puts the row
+back at 578 px. "Explore" to "Thinking…" at 412 px: "Explore" top
+853.5 px, "Thinking…" top 853.5 px, 0 px apart; the result's link then
+sits at 853.5 px. At 1280 px: 391.5 → 391.5 px, and 701.5 → 701.5 px.
+The Remove control is 102.5 px tall at 412 px and 77 px at 1280 px (it
+takes the row's height; at least 44 px).
+
+Earlier counts (kanji-one, 22 Oct 2026): `npm test` 28 tests;
+`npm run screenshots` 147 checks; `npm run check` 39 s.
+
+"Save" to "Saved" at 412 px width (phone, light and dark; kanji-two, with
+the Meaning line now above Save): "Save" top 349.19 px, "Saved" top
+349.19 px, 0 px apart. Choosing a candidate at 412 px: pressed 雨 top
+416 px, result top 416 px, 0 px apart. Resolving the third loose end by
+typing twelve kanji and tapping the last, 鰆, on a later row, at 412 px:
+first candidate top -100.5 px (scrolled above, since meanings make the
+rows taller), pressed 鰆 top 400.81 px, result top 400.81 px, 0 px apart.
+A repeated catch of a saved character: "Add this catch" top 349.19 px,
+"Saved" top 349.19 px. At 1280 px: 336.69 → 336.69 px, 352.5 → 352.5 px,
+and 鰆 (first row 143.5 px) 354.97 → 354.97 px.
 
 **Japanese text in the screenshots.** A browser draws kanji only with a
 Japanese font. The rented Linux machine has none, so the runs above set

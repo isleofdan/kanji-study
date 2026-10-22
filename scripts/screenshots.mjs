@@ -29,7 +29,9 @@ const SIZES = { phone: { width: 412, height: 915 }, computer: { width: 1280, hei
 const SCHEMES = ['light', 'dark'];
 // The screens, in the order the walk reaches them; each is saved as
 // <name>-<size>-<scheme>.png.
-const SCREENS = ['catch-empty', 'draw-read', 'char', 'group', 'catch-populated', 'yours', 'status'];
+const SCREENS = ['catch-empty', 'draw-read', 'char', 'group', 'catch-populated', 'yours', 'type-candidates', 'loose-before-remove', 'loose-removed',
+  'explore-themes', 'theme', 'exploration', 'explore-earlier', 'status'];
+const mockControl = (body) => fetch(`http://127.0.0.1:${MOCK_PORT}/control`, { method: 'POST', body: JSON.stringify(body) });
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 async function up(url) {
@@ -275,6 +277,98 @@ for (const [size, viewport] of Object.entries(SIZES)) {
       addLabel === 'Add this catch' && (await page.textContent('#save')) === 'Saved' && addedTop === addTop, `"${addLabel}" top ${addTop} px, "Saved" top ${addedTop} px`);
     check(`${tag}: it stays saved and leaves no typed loose end`, state.yours.includes('峠') && state.loose === 0, `Yours ${state.yours.join(' ')}, typed loose ends ${state.loose}`);
 
+    // Type candidates, each with its first meanings from the data under it.
+    await page.goto(`${base}/`);
+    await page.click('[data-panel=type]');
+    await page.fill('#typed', '峠の雨');
+    await page.click('#type-form button[type=submit]');
+    await page.waitForSelector('#type-out .gloss');
+    const glosses = await page.$$eval('#type-out .candidates li', (ls) => ls.map((l) => `${l.querySelector('a').textContent}: ${l.querySelector('.gloss')?.textContent ?? ''}`));
+    check(`${tag}: Type candidates carry their first meanings`, glosses.join(' / ') === '峠: mountain peak, mountain pass, climax / 雨: rain', glosses.join(' / '));
+    await shot(page, 'type-candidates');
+
+    // Remove on a loose end: "Removed · Undo" takes the row's place at the
+    // same height; Undo puts the row back there.
+    await page.goto(`${base}/`);
+    await page.waitForSelector('#loose li .remove');
+    const looseRow = page.locator('#loose > li').first();
+    const looseId = await looseRow.getAttribute('data-catch');
+    const removeBtn = looseRow.locator('.remove');
+    const removeHeight = (await removeBtn.boundingBox()).height;
+    check(`${tag}: Remove is at least 44 px tall`, removeHeight >= 44, `${removeHeight} px`);
+    await looseRow.scrollIntoViewIfNeeded();
+    await shot(page, 'loose-before-remove');
+    const rowTop = await top(looseRow.locator('.line'));
+    await removeBtn.click();
+    await page.waitForSelector(`[data-removed="${looseId}"]`);
+    const removedTop = await top(page.locator(`[data-removed="${looseId}"]`));
+    const removedText = (await page.textContent(`[data-removed="${looseId}"]`)).replace(/\s+/g, ' ').trim();
+    check(`${tag}: Remove puts "Removed · Undo" at the row's height`, removedText === 'Removed · Undo' && Math.abs(removedTop - rowTop) < 1,
+      `loose end row top ${rowTop} px, "Removed · Undo" top ${removedTop} px, ${Math.abs(removedTop - rowTop)} px apart`);
+    const goneFromHome = await page.evaluate(async (id) => !(await (await fetch('/data/home', { headers: { accept: 'application/json' } })).json()).loose.some((c) => String(c.id) === id), looseId);
+    check(`${tag}: the removed loose end leaves the home answer`, goneFromHome);
+    await shot(page, 'loose-removed');
+    await page.click(`[data-removed="${looseId}"] .undo`);
+    await looseRow.locator('.line').waitFor();
+    const backTop = await top(looseRow.locator('.line'));
+    const backInHome = await page.evaluate(async (id) => (await (await fetch('/data/home', { headers: { accept: 'application/json' } })).json()).loose.some((c) => String(c.id) === id), looseId);
+    check(`${tag}: Undo puts the row back in place`, backInHome && Math.abs(backTop - rowTop) < 1, `row top ${rowTop} px, back at ${backTop} px`);
+
+    // Explore: themes, with his records giving some (saved characters, a
+    // last catch; no character opened from a group, so not that one); no
+    // Earlier yet.
+    await page.click('header nav a[href="/explore"]');
+    await page.waitForSelector('#themes li');
+    const themeIds = await page.$$eval('#themes a', (as) => as.map((a) => a.dataset.theme));
+    check(`${tag}: Explore lists the records themes his records give, then the data themes`,
+      themeIds.join(' ') === 'saved-radicals last-catch names-only joyo-unranked most-variants rare-radicals most-strokes many-readings', themeIds.join(' '));
+    check(`${tag}: Explore has no "Earlier" before any question`, !(await page.isVisible('#earlier-part')));
+    await shot(page, 'explore-themes');
+
+    // A theme page of characters.
+    await page.click('#themes a[data-theme="most-strokes"]');
+    await page.waitForSelector('#chars li');
+    check(`${tag}: a theme page shows its title and characters`, (await page.textContent('#heading')) === 'The most strokes' && (await page.$$eval('#chars li', (l) => l.length)) > 0);
+    await shot(page, 'theme');
+
+    // Ask: "Explore" becomes "Thinking…" at the same height, then the link
+    // to the result. The stand-in waits a moment so "Thinking…" is seen.
+    await page.goto(`${base}/explore`);
+    await page.waitForSelector('#themes li');
+    await page.fill('#question', 'characters I would meet on old weather signs');
+    await page.locator('#ask').scrollIntoViewIfNeeded();
+    const askTop = await top(page.locator('#ask'));
+    await mockControl({ delay: 1500 });
+    await page.click('#ask');
+    await page.waitForSelector('.thinking');
+    const thinkingTop = await top(page.locator('.thinking'));
+    const thinkingText = await page.textContent('.thinking');
+    check(`${tag}: "Explore" becomes "Thinking…" at the same height`, thinkingText === 'Thinking…' && Math.abs(thinkingTop - askTop) < 1,
+      `"Explore" top ${askTop} px, "Thinking…" top ${thinkingTop} px, ${Math.abs(thinkingTop - askTop)} px apart`);
+    await page.waitForSelector('[data-result] a');
+    await mockControl({ delay: 0 });
+    const resultAt = await top(page.locator('[data-result]'));
+    check(`${tag}: the result's link takes the same place`, Math.abs(resultAt - askTop) < 1, `result top ${resultAt} px`);
+
+    // The exploration: the model's sentences in italics under "In the
+    // model's words", three places from the data, two dropped.
+    await page.click('[data-result] a');
+    await page.waitForSelector('#stops li');
+    const stops = await page.$$eval('#stops > li > a', (as) => as.map((a) => a.textContent.replace(/\s+/g, ' ').trim()));
+    check(`${tag}: the exploration lists the three places the data holds, labelled from the data`,
+      stops.length === 3 && stops[0].startsWith('部首 雨 (173)') && stops[1].startsWith('音読み ショウ') && stops[2].startsWith('峠mountain peak'), stops.join(' / '));
+    const italics = await page.$$eval('.reading, .why', (ps) => ps.every((p) => getComputedStyle(p).fontStyle === 'italic'));
+    check(`${tag}: the model's sentences are in italics under "In the model's words"`, italics && (await page.textContent('.model-words h2')) === "In the model's words");
+    check(`${tag}: the page never says "stop"`, !/\bstops?\b/i.test(await page.textContent('main')));
+    await shot(page, 'exploration');
+
+    // Explore again: "Earlier" lists the question.
+    await page.click('header nav a[href="/explore"]');
+    await page.waitForSelector('#earlier li');
+    check(`${tag}: Earlier lists the question`, (await page.textContent('#earlier')).includes('characters I would meet on old weather signs'));
+    await page.locator('#earlier-part').scrollIntoViewIfNeeded();
+    await shot(page, 'explore-earlier');
+
     await page.goto(`${base}/status`);
     check(`${tag}: status shows "alive since"`, (await page.textContent('body')).includes('alive since '));
     await shot(page, 'status');
@@ -283,6 +377,6 @@ for (const [size, viewport] of Object.entries(SIZES)) {
 }
 await browser.close();
 const calls = await (await fetch(`http://127.0.0.1:${MOCK_PORT}/calls`)).json();
-check('the stand-in model was asked once per "Read it" and no more', calls.calls === Object.keys(SIZES).length * SCHEMES.length, `${calls.calls} calls`);
+check('the stand-in model was asked once per "Read it" and once per "Explore", and no more', calls.calls === Object.keys(SIZES).length * SCHEMES.length * 2, `${calls.calls} calls`);
 console.log(failed ? `${failed} check(s) failed` : `all checks passed; ${SCREENS.length} screens × 2 sizes × 2 schemes in ${out}`);
 process.exit(failed ? 1 : 0);

@@ -11,11 +11,13 @@
 //   {"fail": "status"}   answer 402 with OpenRouter's error shape
 //   {"fail": "garbage"}  answer text that is not JSON
 //   {"fail": null}       answer normally again
+//   {"delay": 1500}      wait that many milliseconds before answering
+//                        (so a check can see "Thinking…"); 0 for none
 // GET /calls answers how many model requests came, and the last one.
 import http from 'node:http';
 
 const port = Number(process.argv[2]) || 8931;
-const control = { fail: null };
+const control = { fail: null, delay: 0 };
 let calls = 0;
 let last = null;
 
@@ -30,10 +32,10 @@ const EXPLORE = {
   ],
 };
 
-const answer = (res, content) => {
+const answer = (res, content) => setTimeout(() => {
   res.writeHead(200, { 'content-type': 'application/json' });
   res.end(JSON.stringify({ id: 'mock', model: last.model, choices: [{ message: { role: 'assistant', content }, finish_reason: 'stop' }] }));
-};
+}, control.delay);
 
 http.createServer((req, res) => {
   if (req.url === '/calls') { res.end(JSON.stringify({ calls, last })); return; }
