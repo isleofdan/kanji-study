@@ -7,8 +7,8 @@
 // as a POST navigation to /share (the share target in manifest.webmanifest,
 // multipart/form-data, the picture under "photos" as MDN's example names
 // it). The worker keeps its title, text, url and first picture in Cache
-// storage under one fixed key, then sends the browser to /share, whose page
-// reads the share, saves it, and removes it.
+// storage under one fixed key, with an id of its own, then sends the browser
+// to /share, whose page reads the share, saves it, and removes it.
 const SHARE_CACHE = 'kanji-share';
 const HELD = '/share/held';
 
@@ -22,6 +22,9 @@ self.addEventListener('fetch', (e) => {
   e.respondWith((async () => {
     const form = await e.request.formData();
     const held = new FormData();
+    // Its own id: the server saves a share once, however often the share
+    // page sends it (a reload after a lost answer); a new share is new.
+    held.append('id', self.crypto.randomUUID());
     for (const k of ['title', 'text', 'url']) {
       const v = form.get(k);
       if (typeof v === 'string' && v.trim()) held.append(k, v);

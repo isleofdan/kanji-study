@@ -14,7 +14,8 @@ const PICTURE_TYPES = ['image/png', 'image/jpeg'];
 const out = document.getElementById('share-out');
 
 // The held share, or null. It is removed (`drop`) once it is saved or
-// refused; a failure on the way to the server leaves it held for a reload.
+// refused; a failure on the way to the server leaves it held for a reload,
+// which saves it once (its id, below), whether or not the server had it.
 async function held() {
   if (!('caches' in window)) return null;
   const cache = await caches.open(SHARE_CACHE);
@@ -39,6 +40,10 @@ function refusal(file) {
   return say(`Kanji takes PNG or JPEG pictures of at most ${PICTURE_MAX_MB} MB; this one is ${what}. Nothing was saved.`, true);
 }
 
+// Every save carries the id the worker gave the share (`share_id`): sent
+// again after a lost answer, the server answers the catch it already saved.
+let shareId = null;
+
 async function sharePicture(file, note, where) {
   if (!PICTURE_TYPES.includes(file.type) || file.size > PICTURE_MAX_MB * 1048576) { out.replaceChildren(refusal(file)); return; }
   let image;
@@ -46,7 +51,7 @@ async function sharePicture(file, note, where) {
     out.replaceChildren(say(`That picture could not be opened. Kanji takes PNG or JPEG pictures of at most ${PICTURE_MAX_MB} MB. Nothing was saved.`, true));
     return;
   }
-  const got = await api('POST', '/catch', { kind: 'photo', image, note, where });
+  const got = await api('POST', '/catch', { kind: 'photo', image, note, where, share_id: shareId });
   const id = got.catch.id;
   const keep = el('button', { class: 'btn secondary', type: 'button', id: 'share-keep' }, 'Keep as a loose end');
   const photoOut = el('div', { id: 'share-photo-out' }, keep);
@@ -65,7 +70,7 @@ async function sharePicture(file, note, where) {
 }
 
 async function shareText(text, where) {
-  const got = await api('POST', '/catch', { kind: 'typed', text: text.slice(0, TYPED_MAX), where });
+  const got = await api('POST', '/catch', { kind: 'typed', text: text.slice(0, TYPED_MAX), where, share_id: shareId });
   if (!got.candidates.length) return false;
   out.replaceChildren(
     el('p', { class: 'shared', lang: 'ja' }, text),
@@ -77,7 +82,7 @@ async function shareText(text, where) {
 }
 
 async function shareNote(note, where) {
-  const got = await api('POST', '/catch', { kind: 'note', note, where });
+  const got = await api('POST', '/catch', { kind: 'note', note, where, share_id: shareId });
   out.replaceChildren(el('p', { class: 'shared', lang: 'ja' }, note), savedLine(got.catch), el('p', {}, el('a', { href: '/' }, 'See it under Loose ends')));
 }
 
@@ -86,6 +91,7 @@ async function shareNote(note, where) {
   if (!h) return nothing();
   const field = (k) => { const v = h.form.get(k); return typeof v === 'string' ? v.trim() : ''; };
   const [title, text, url] = ['title', 'text', 'url'].map(field);
+  shareId = field('id') || null;
   const picture = h.form.get('photos');
   try {
     if (picture && typeof picture !== 'string') await sharePicture(picture, text || null, url || title || null);

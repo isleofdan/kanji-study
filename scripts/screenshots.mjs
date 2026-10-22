@@ -473,6 +473,20 @@ for (const [size, viewport] of Object.entries(SIZES)) {
     check(`${tag}: a shared GIF is refused naming PNG and JPEG`, gifSay.includes('PNG') && gifSay.includes('JPEG') && gifSay.includes('GIF'), gifSay);
     check(`${tag}: the refused GIF saved nothing`, JSON.stringify(await records()) === JSON.stringify(afterReload));
 
+    // The save reaches the server but its answer is lost: the share stays
+    // held, and a reload saves it once, not twice.
+    await page.route(`${base}/catch`, async (route) => { await route.fetch(); await route.abort('connectionreset'); }, { times: 1 });
+    await share({ title: 'a line', text: '雨' });
+    const lostSay = await page.textContent('#share-out .say.bad');
+    const afterLost = await records();
+    check(`${tag}: a share whose answer is lost says it is kept`, lostSay.includes('What was shared is kept here') && afterLost.loose.length === afterReload.loose.length + 1, `${lostSay}; ${afterReload.loose.length} → ${afterLost.loose.length} loose ends`);
+    await page.reload();
+    await page.waitForSelector('#share-out .candidates');
+    const afterRetry = await records();
+    check(`${tag}: the reload after a lost answer saves nothing twice`, JSON.stringify(afterRetry) === JSON.stringify(afterLost), `${afterLost.loose.length} → ${afterRetry.loose.length} loose ends`);
+    await page.reload();
+    await page.waitForSelector('#nothing');
+
     await page.goto(`${base}/status`);
     check(`${tag}: status shows "alive since"`, (await page.textContent('body')).includes('alive since '));
     await page.waitForFunction(() => !document.getElementById('phone-install').textContent.includes('Checking') && !document.getElementById('phone-share').textContent.includes('Checking'));

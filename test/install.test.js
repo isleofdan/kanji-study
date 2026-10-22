@@ -138,6 +138,48 @@ test('POST /share at the server answers 303 to /share, signed in or out, and wri
   assert.deepEqual(before, { loose: [], latest: [] });
 });
 
+// A share's save sent again with the same share_id (its answer was lost on
+// the way back, then the page was reloaded) answers the catch already saved.
+const post = async (body) => {
+  const r = await fetch(`${base}/catch`, { method: 'POST', headers: { cookie: jar, 'content-type': 'application/json', accept: 'application/json' }, body: JSON.stringify(body) });
+  return { status: r.status, body: await r.json() };
+};
+const PNG_1PX = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+
+test('a share saved again under its share_id saves once, for text, a note and a picture', async () => {
+  const images = () => fs.readdirSync(path.join(DATA_DIR, 'images')).length;
+  const before = (await home()).loose.length;
+  const typed = { kind: 'typed', text: '雨と峠', where: 'a page', share_id: 'share-typed-0001' };
+  const t1 = await post(typed);
+  const t2 = await post(typed);
+  assert.equal(t1.status, 200);
+  assert.equal(t2.body.catch.id, t1.body.catch.id);
+  assert.deepEqual(t2.body.candidates, ['雨', '峠']);
+  const note = { kind: 'note', note: 'no kanji here', share_id: 'share-note-00001' };
+  assert.equal((await post(note)).body.catch.id, (await post(note)).body.catch.id);
+  const filesBefore = images();
+  const photo = { kind: 'photo', image: PNG_1PX, share_id: 'share-photo-0001' };
+  const p1 = await post(photo);
+  const p2 = await post(photo);
+  assert.equal(p2.body.catch.id, p1.body.catch.id);
+  assert.equal(images(), filesBefore + 1, 'one picture file, not two');
+  assert.equal((await home()).loose.length, before + 3);
+});
+
+test('two shares of the same text with different share_ids are two catches', async () => {
+  const a = await post({ kind: 'typed', text: '峠', share_id: 'share-twin-aaaa' });
+  const b = await post({ kind: 'typed', text: '峠', share_id: 'share-twin-bbbb' });
+  const c = await post({ kind: 'typed', text: '峠' });
+  assert.notEqual(a.body.catch.id, b.body.catch.id);
+  assert.notEqual(b.body.catch.id, c.body.catch.id);
+});
+
+test('a share_id that is not 8 to 64 letters, digits or dashes is refused, naming what is valid', async () => {
+  const r = await post({ kind: 'note', note: 'x', share_id: 'bad id!' });
+  assert.equal(r.status, 400);
+  assert.equal(r.body.error, 'share_id must be 8 to 64 letters, digits or dashes');
+});
+
 test('GET /share signed in is the share page, which reads what the worker holds', async () => {
   const r = await fetch(`${base}/share`, { headers: { cookie: jar } });
   assert.equal(r.status, 200);

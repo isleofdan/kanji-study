@@ -99,6 +99,7 @@ route('GET', /^\/$/, (req, res) => sendHtml(res, 200, page('index.html')));
 // drawing or a photo when Dan presses "Read it" (lib/vision.js).
 
 const IMAGE_BODY_MAX = 8 * 1024 * 1024;
+const SHARE_ID = /^[A-Za-z0-9-]{8,64}$/;
 const text = (v, max = 500) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null);
 const param = (s) => { try { return decodeURIComponent(s); } catch { return s; } };
 
@@ -124,21 +125,28 @@ route('POST', /^\/catch$/, async (req, res) => {
   const kind = body.kind;
   if (!db.CATCH_KINDS.includes(kind)) throw Object.assign(new Error(`kind must be one of ${db.CATCH_KINDS.join(', ')}`), { status: 400 });
   const where = text(body.where);
+  // A share from another app carries the id the service worker gave it; the
+  // same id again (a reload after the answer was lost) answers the catch it
+  // already became, saving nothing new.
+  const shareId = body.share_id ?? null;
+  if (shareId !== null && !SHARE_ID.test(String(shareId))) throw Object.assign(new Error('share_id must be 8 to 64 letters, digits or dashes'), { status: 400 });
+  const prior = shareId ? db.sharedCatch(shareId) : null;
   if (kind === 'typed') {
     const typed = text(body.text, 200);
     const candidates = kanji.inText(typed);
     if (!candidates.length) return sendJson(res, 200, { catch: null, candidates: [], meaning: {}, message: 'No kanji from the data in what you typed.' });
-    const c = db.addCatch({ kind, note: typed, where });
+    const c = prior || db.addCatch({ kind, note: typed, where, shareId });
     return sendJson(res, 200, { catch: shown(c), candidates, meaning: meanings(candidates) });
   }
   if (kind === 'note') {
     const note = text(body.note);
     if (!note) throw Object.assign(new Error('note is required for a note catch'), { status: 400 });
-    return sendJson(res, 200, { catch: shown(db.addCatch({ kind, note, where })), candidates: [] });
+    return sendJson(res, 200, { catch: shown(prior || db.addCatch({ kind, note, where, shareId })), candidates: [] });
   }
   if (!body.image) throw Object.assign(new Error(`image is required for a ${kind} catch`), { status: 400 });
+  if (prior) return sendJson(res, 200, { catch: shown(prior), candidates: [] });
   const image = images.store(body.image);
-  return sendJson(res, 200, { catch: shown(db.addCatch({ kind, note: text(body.note), where, image })), candidates: [] });
+  return sendJson(res, 200, { catch: shown(db.addCatch({ kind, note: text(body.note), where, image, shareId })), candidates: [] });
 });
 
 // Sends the catch's image to the model, once per press. The catch stays a
