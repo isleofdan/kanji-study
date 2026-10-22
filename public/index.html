@@ -6,14 +6,63 @@
 <title>{{TITLE}}</title>
 <link rel="stylesheet" href="/app.css">
 </head>
-<body>
+<body data-page="catch">
 <header class="bar">
   <a class="name" href="/">{{TITLE}}</a>
-  <nav><a href="/status">Status</a><a href="/logout">Sign out</a></nav>
+  <nav><a href="/">Catch</a><a href="/yours">Yours</a><a href="/status">Status</a></nav>
 </header>
 <main>
-  <h1>This is {{TITLE}}</h1>
-  <p class="muted">The sample screen. An app made from the starting kit replaces it with its own.</p>
+  <h1>Catch</h1>
+  <div class="catch-buttons" role="group" aria-label="Catch">
+    <button class="btn" type="button" data-panel="type" aria-pressed="false">Type</button>
+    <button class="btn" type="button" data-panel="draw" aria-pressed="false">Draw</button>
+    <button class="btn" type="button" data-panel="photo" aria-pressed="false">Photo</button>
+    <button class="btn" type="button" data-panel="note" aria-pressed="false">Note</button>
+  </div>
+  <label for="where">Where?</label>
+  <input id="where" type="text" autocomplete="off" placeholder="a menu, a temple plaque, a film">
+
+  <section class="panel" id="panel-type" hidden>
+    <form id="type-form">
+      <label for="typed">Type the character, or the words around it</label>
+      <input id="typed" class="typebox ja" type="text" lang="ja" autocomplete="off" autocapitalize="off" spellcheck="false">
+      <button class="btn" type="submit">Look up</button>
+    </form>
+    <div id="type-out"></div>
+  </section>
+
+  <section class="panel" id="panel-draw" hidden>
+    <canvas class="pad" id="pad" width="600" height="600" aria-label="Drawing area"></canvas>
+    <div class="row">
+      <button class="btn secondary" type="button" id="draw-clear">Clear</button>
+      <button class="btn" type="button" id="draw-read">Read it</button>
+    </div>
+    <div id="draw-out"><button class="btn secondary" type="button" id="draw-keep">Keep as a loose end</button></div>
+  </section>
+
+  <section class="panel" id="panel-photo" hidden>
+    <label for="photo-file">Take a photo or pick a picture</label>
+    <input id="photo-file" type="file" accept="image/*">
+    <img class="preview" id="photo-preview" alt="" hidden>
+    <button class="btn" type="button" id="photo-read" disabled>Read it</button>
+    <div id="photo-out"><button class="btn secondary" type="button" id="photo-keep" disabled>Keep as a loose end</button></div>
+  </section>
+
+  <section class="panel" id="panel-note" hidden>
+    <label for="note-text">A note to yourself</label>
+    <textarea id="note-text" lang="ja" placeholder="the plaque at the temple gate, something with 雨 on top"></textarea>
+    <div id="note-out"><button class="btn" type="button" id="note-keep">Keep</button></div>
+  </section>
+
+  <h2>Loose ends</h2>
+  <ul class="loose" id="loose"></ul>
+  <p class="muted" id="loose-none" hidden>None. A catch you keep without a character waits here.</p>
+
+  <h2>Latest</h2>
+  <ul class="chars" id="latest"></ul>
+  <p class="muted" id="latest-none" hidden>Nothing caught yet.</p>
 </main>
+<script src="/js/common.js"></script>
+<script src="/js/catch.js"></script>
 </body>
 </html>

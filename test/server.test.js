@@ -6,6 +6,8 @@ const test = require('node:test');
 const assert = require('node:assert');
 const { spawn } = require('node:child_process');
 const path = require('node:path');
+const fs = require('node:fs');
+const os = require('node:os');
 const app = require('../lib/app');
 const { COOKIE } = require('../lib/auth');
 
@@ -13,6 +15,8 @@ const PORT = 8911;
 const PASS = 'open sesame';
 const base = `http://127.0.0.1:${PORT}`;
 let server;
+// The records go to an empty folder of the test's own, never ./var.
+const DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'kanji-test-'));
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 async function up() {
@@ -24,12 +28,12 @@ const form = (fields) => ({ method: 'POST', redirect: 'manual', headers: { 'cont
 test.before(async () => {
   server = spawn('node', ['server.js'], {
     cwd: path.join(__dirname, '..'),
-    env: { ...process.env, PORT: String(PORT), APP_PASSWORD: PASS, COOKIE_SECRET: 'x'.repeat(64), COOKIE_INSECURE: '1', COMMIT: 'abcdef1234' },
+    env: { ...process.env, PORT: String(PORT), APP_PASSWORD: PASS, COOKIE_SECRET: 'x'.repeat(64), COOKIE_INSECURE: '1', COMMIT: 'abcdef1234', DATA_DIR },
     stdio: ['ignore', 'ignore', 'inherit'],
   });
   await up();
 });
-test.after(() => server.kill());
+test.after(() => { server.kill(); fs.rmSync(DATA_DIR, { recursive: true, force: true }); });
 
 test('the alive line answers 200 in plain text without a cookie', async () => {
   const r = await fetch(`${base}/alive`);
@@ -79,7 +83,9 @@ test('the right passphrase with spaces around it signs in for 30 days', async ()
   assert.match(html, /alive since .* · abcdef1/);
   assert.match(html, /Nothing called yet\./);
   const home = await fetch(`${base}/`, { headers: { cookie: jar } });
-  assert.match(await home.text(), new RegExp(`This is ${app.title}`));
+  const homeHtml = await home.text();
+  assert.match(homeHtml, new RegExp(`<title>${app.title}</title>`));
+  assert.match(homeHtml, /<body data-page="catch">/);
 });
 
 test('a forged cookie is refused', async () => {

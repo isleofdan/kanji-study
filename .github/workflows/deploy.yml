@@ -3,7 +3,7 @@
 # from the repository secret every time, makes COOKIE_SECRET once and keeps
 # it on Fly, deploys, then proves the result: the alive line answers, and
 # signing in through the sign-in form, as a person would, reaches the
-# sample screen.
+# Catch page.
 #
 # Repository secrets it needs: FLY_API_TOKEN (a Fly org token for Dan's
 # personal org, which can create apps; a deploy token cannot),
@@ -154,12 +154,11 @@ jobs:
             echo "cookie: none"
           fi
           page=$(curl -s -b "$jar" -o /tmp/home.html -w '%{http_code}' "$base/")
-          title=$(jq -r .title app.json)
-          if [ "$login" = "303" ] && [ -n "$cookie" ] && [ "$page" = "200" ] && grep -q "This is $title" /tmp/home.html; then
-            echo "signed in: yes (sample screen: HTTP $page, \"This is $title\")"
+          if [ "$login" = "303" ] && [ -n "$cookie" ] && [ "$page" = "200" ] && grep -q '<body data-page="catch">' /tmp/home.html; then
+            echo "signed in: yes (Catch page: HTTP $page)"
           else
-            echo "signed in: no (sample screen: HTTP $page)"
-            echo "::error::Signing in through the form with APP_PASSWORD did not reach the sample screen."
+            echo "signed in: no (Catch page: HTTP $page)"
+            echo "::error::Signing in through the form with APP_PASSWORD did not reach the Catch page."
             exit 1
           fi
           echo "Live at $base"

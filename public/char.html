@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{CHAR}} · {{TITLE}}</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body data-page="char">
+<header class="bar">
+  <a class="name" href="/">{{TITLE}}</a>
+  <nav><a href="/">Catch</a><a href="/yours">Yours</a><a href="/status">Status</a></nav>
+</header>
+<main>
+  <div class="char-top">
+    <h1 class="big-char" lang="ja">{{CHAR}}</h1>
+    <button class="btn" type="button" id="save" disabled>Save</button>
+  </div>
+  <p class="say" id="say"></p>
+  <section id="caught" hidden>
+    <h2>Caught</h2>
+    <ul class="catches" id="catches"></ul>
+  </section>
+  <dl class="facts" id="facts"></dl>
+  <p class="source" id="source"></p>
+</main>
+<script src="/js/common.js"></script>
+<script src="/js/char.js"></script>
+</body>
+</html>
