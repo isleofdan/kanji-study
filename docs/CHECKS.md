@@ -17,7 +17,7 @@ The 3 Oct 2026 afternoon run used a fresh builder on the faster CPU.
 | - | - |
 | syntax | Every `.js`, `.mjs` and `.cjs` file outside `node_modules` parses (`node --check`, file by file). |
 | tests | `npm test`: the gate, the alive line, the status page and `lib/upstream.js` (the kit's 8), plus this app's 20: the kanji data, its groups and the refusals that name valid values (`test/kanji.test.js`, 5), catches, reading against the stand-in model, choosing, a repeated catch of a saved character, saving, the values lists and the opens record against a real server (`test/catch.test.js`, 14), and the missing model key (`test/vision.test.js`, 1). 28 tests. |
-| screenshots | `npm run screenshots`: every screen at phone (412×915) and computer (1280×800) size, in light and dark, signing in through the form, with no sideways scrolling; it walks Catch empty, Draw after "Read it", a character page, a group page with the origin outlined, Catch with loose ends and latest, Yours and Status; it measures that "Save"→"Saved", choosing a candidate, resolving a later loose end and "Add this catch"→"Saved" keep their place, and that Keep comes back for a second note, drawing and photo (143 checks, 30 images). Needs Playwright's browser. |
+| screenshots | `npm run screenshots`: every screen at phone (412×915) and computer (1280×800) size, in light and dark, signing in through the form, with no sideways scrolling; it walks Catch empty, Draw after "Read it", a character page, a group page with the origin outlined, Catch with loose ends and latest, Yours and Status; it measures that "Save"→"Saved", choosing a candidate (the result's top against the pressed candidate's top), resolving a later loose end from a candidate on a later row, and "Add this catch"→"Saved" keep their place, and that Keep comes back for a second note, drawing and photo (147 checks, 30 images). Needs Playwright's browser. |
 
 The model in every check is the stand-in, `scripts/mock-openrouter.mjs`
 (after the Hebrew reader's), set by `OPENROUTER_URL`; no check calls the
@@ -27,18 +27,19 @@ empty records folder of their own, never `./var`.
 
 Counts as last run (kanji-one, 22 Oct 2026, the rented Linux machine,
 Node 24.21.0): `npm test` 28 tests, 28 passed; `npm run screenshots`
-143 checks, 143 passed; `npm run check` ended
-`check: all passed: syntax, tests, screenshots` in 38 s (syntax 0.94 s,
-tests 3.13 s, screenshots 34.24 s).
+147 checks, 147 passed; `npm run check` ended
+`check: all passed: syntax, tests, screenshots` in 39 s (syntax 0.92 s,
+tests 1.96 s, screenshots 35.83 s).
 
 "Save" to "Saved" at 412 px width (phone, light and dark): "Save" top
 146.09 px, "Saved" top 146.09 px, 0 px apart. Choosing a candidate at
-412 px: candidates top 513 px, result top 513 px, 0 px apart. Resolving
-the third loose end by typing, at 412 px: candidates top 556.5 px (light)
-and 592.5 px (dark), result at the same top, 0 px apart. A repeated catch
-of a saved character: "Add this catch" top 146.09 px, "Saved" top
-146.09 px. At 1280 px: 162.09 → 162.09 px, 392.5 → 392.5 px and
-354.5 → 354.5 px.
+412 px: pressed 雨 top 513 px, result top 513 px, 0 px apart. Resolving
+the third loose end by typing twelve kanji and tapping the last, 鰆, on a
+later row, at 412 px: first candidate top 39.5 px, pressed 鰆 top
+401.52 px, result top 401.52 px, 0 px apart. A repeated catch of a saved
+character: "Add this catch" top 146.09 px, "Saved" top 146.09 px. At
+1280 px: 162.09 → 162.09 px, 392.5 → 392.5 px, and 鰆 (first row 256.5 px)
+354.84 → 354.84 px.
 
 **Japanese text in the screenshots.** A browser draws kanji only with a
 Japanese font. The rented Linux machine has none, so the runs above set

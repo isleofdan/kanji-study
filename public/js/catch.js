@@ -23,10 +23,10 @@ const chosen = (char, saved) => el('div', { class: 'result', 'data-chosen': char
   el('span', { class: 'ja', lang: 'ja' }, char), saved ? ' saved to Yours. ' : ' chosen. ', el('a', { href: charLink(char) }, 'Open its page'));
 
 // Resolves the catch; the result takes the place of `control`, the list of
-// candidates he tapped in (rule 3).
-async function choose(catchId, char, control) {
+// candidates, at the height of `pressed`, the candidate he tapped (rule 3).
+async function choose(catchId, char, control, pressed) {
   const got = await api('POST', `/catch/${catchId}/choose`, { char });
-  replaceInPlace(control, chosen(got.char, got.saved));
+  replaceInPlace(control, chosen(got.char, got.saved), pressed);
   loadHome();
   return got;
 }
@@ -39,7 +39,7 @@ async function readInto(out, catchId, image, after = () => {}) {
   try {
     const got = await api('POST', `/catch/${catchId}/read`, image ? { image } : undefined);
     if (!got.candidates.length) { reading.textContent = 'No kanji from the data in it. It is kept as a loose end.'; return; }
-    const list = candidateList(got.candidates, (c, l) => choose(catchId, c, l).then(after).catch((e) => l.after(say(e.message, true))));
+    const list = candidateList(got.candidates, (c, l, b) => choose(catchId, c, l, b).then(after).catch((e) => l.after(say(e.message, true))));
     out.replaceChildren(el('p', { class: 'say' }, 'Tap the one you saw:'), list);
   } catch (e) {
     out.replaceChildren(say(`${e.message} It is kept as a loose end.`, true));
@@ -146,7 +146,7 @@ function resolver(c, li) {
   // Resolved: the card's heading says so; the result sits where the
   // candidates were.
   const resolved = () => { li.classList.add('resolved'); li.querySelector('.head .meta').append(' · resolved'); };
-  const pick = (char, list) => choose(c.id, char, list).then(resolved).catch((e) => list.after(say(e.message, true)));
+  const pick = (char, list, button) => choose(c.id, char, list, button).then(resolved).catch((e) => list.after(say(e.message, true)));
   const typed = el('input', { type: 'text', class: 'typebox ja', lang: 'ja', 'aria-label': 'Type the character' });
   const typeForm = el('form', { onsubmit: async (e) => {
     e.preventDefault();
