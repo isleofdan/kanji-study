@@ -251,6 +251,23 @@ test('a repeated catch of a saved character resolves the new catch and keeps the
   assert.deepEqual(char.catches.map((c) => c.id), [again.catch.id, first.catch.id]);
 });
 
+test('meanings: the character page shows the Meaning line; the char answer and every candidates answer carry meaning', async () => {
+  const page = await (await fetch(`${base}/k/${encodeURIComponent('峠')}`, { headers: { cookie: jar } })).text();
+  assert.match(page, /<div class="meaning" id="meaning"><h2>Meaning<\/h2><p>mountain peak, mountain pass, climax, crest, \(kokuji\)<\/p><\/div>/);
+  const none = await (await fetch(`${base}/k/${encodeURIComponent('乁')}`, { headers: { cookie: jar } })).text();
+  assert.match(none, /<h2>Meaning<\/h2><p>—<\/p>/);
+  const char = await (await json('GET', `/data/char/${encodeURIComponent('雨')}`)).json();
+  assert.deepEqual(char.kanji.meaning, ['rain']);
+  const typed = await (await json('POST', '/catch', { kind: 'typed', text: '峠の雨、乁' })).json();
+  assert.deepEqual(typed.candidates, ['峠', '雨', '乁']);
+  assert.deepEqual(typed.meaning, { 峠: ['mountain peak', 'mountain pass', 'climax'], 雨: ['rain'] });
+  const looked = await (await json('GET', `/data/candidates?text=${encodeURIComponent('峠')}`)).json();
+  assert.deepEqual(looked.meaning, { 峠: ['mountain peak', 'mountain pass', 'climax'] });
+  const drawn = await (await json('POST', '/catch', { kind: 'drawn', image: png(200, 200) })).json();
+  const read = await (await json('POST', `/catch/${drawn.catch.id}/read`)).json();
+  assert.deepEqual(read.meaning, { 雨: ['rain'], 峠: ['mountain peak', 'mountain pass', 'climax'] });
+});
+
 test('reopening the home page makes no model request', async () => {
   const before = await calls();
   for (let i = 0; i < 3; i++) {

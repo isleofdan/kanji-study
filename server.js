@@ -104,6 +104,15 @@ const param = (s) => { try { return decodeURIComponent(s); } catch { return s; }
 // A catch as the pages read it: its image as an address on this site.
 const shown = (c) => ({ ...c, image: c.image ? `/img/${c.image}` : null });
 
+// Candidates are answered with `meaning`: each candidate's first three
+// meanings from the data, by character; one with none is left out.
+const CANDIDATE_MEANINGS = 3;
+function meanings(chars) {
+  const out = {};
+  for (const c of chars) { const m = kanji.get(c)?.meaning; if (m) out[c] = m.slice(0, CANDIDATE_MEANINGS); }
+  return out;
+}
+
 function mustChar(value) {
   if (typeof value !== 'string' || !value) throw Object.assign(new Error('char is required: one kanji from the data (KANJIDIC2)'), { status: 400 });
   return kanji.mustGet(value).c;
@@ -117,9 +126,9 @@ route('POST', /^\/catch$/, async (req, res) => {
   if (kind === 'typed') {
     const typed = text(body.text, 200);
     const candidates = kanji.inText(typed);
-    if (!candidates.length) return sendJson(res, 200, { catch: null, candidates: [], message: 'No kanji from the data in what you typed.' });
+    if (!candidates.length) return sendJson(res, 200, { catch: null, candidates: [], meaning: {}, message: 'No kanji from the data in what you typed.' });
     const c = db.addCatch({ kind, note: typed, where });
-    return sendJson(res, 200, { catch: shown(c), candidates });
+    return sendJson(res, 200, { catch: shown(c), candidates, meaning: meanings(candidates) });
   }
   if (kind === 'note') {
     const note = text(body.note);
@@ -148,7 +157,7 @@ route('POST', /^\/catch\/([^/]+)\/read$/, async (req, res, m) => {
   if (!image) throw Object.assign(new Error(`catch ${c.id} has no image to read; send a drawing as image, or read a drawn or photo catch`), { status: 400 });
   try {
     const got = await vision.read(c.kind === 'photo' && image === c.image ? 'photo' : 'drawn', images.dataUrl(image));
-    return sendJson(res, 200, { catch: shown(c), candidates: got.candidates, dropped: got.dropped });
+    return sendJson(res, 200, { catch: shown(c), candidates: got.candidates, meaning: meanings(got.candidates), dropped: got.dropped });
   } catch (e) {
     if (!(e instanceof vision.ReadError)) throw e;
     return sendJson(res, e.status, { error: e.message, catch: shown(db.getCatch(c.id)) });
@@ -195,7 +204,8 @@ route('GET', /^\/data\/group\/([^/]+)\/([^/]+)$/, (req, res, m) => {
 // The characters of typed text that are in the data, for resolving a loose
 // end by typing. Makes no catch.
 route('GET', /^\/data\/candidates$/, (req, res) => {
-  sendJson(res, 200, { candidates: kanji.inText(new URL(req.url, 'http://x').searchParams.get('text')) });
+  const candidates = kanji.inText(new URL(req.url, 'http://x').searchParams.get('text'));
+  sendJson(res, 200, { candidates, meaning: meanings(candidates) });
 });
 
 // Every value of a fact kind that some character in the data has.
@@ -225,7 +235,9 @@ route('GET', /^\/k\/([^/]+)$/, (req, res, m) => {
   const q = new URL(req.url, 'http://x').searchParams;
   const fromKind = kanji.KINDS.includes(q.get('kind')) ? q.get('kind') : null;
   db.recordOpen(k.c, fromKind, fromKind ? text(q.get('value'), 100) : null);
-  sendHtml(res, 200, page('char.html', { CHAR: k.c }));
+  // The Meaning line is in the page as it comes, so nothing moves under
+  // Save when the facts load.
+  sendHtml(res, 200, page('char.html', { CHAR: k.c, MEANING: k.meaning ? k.meaning.join(', ') : '—' }));
 });
 
 route('GET', /^\/g\/([^/]+)\/([^/]+)$/, (req, res, m) => {

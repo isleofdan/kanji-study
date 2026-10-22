@@ -106,11 +106,18 @@ function reducePhoto(file, maxSide = 1600) {
   });
 }
 
-// A row of candidates as large characters to tap; onPick(char, list,
-// button) gets the list, whose place the result takes, and the button he
-// pressed, where the result is put.
-function candidateList(chars, onPick) {
+// A candidate's first meanings from the data, in small text under it, so
+// Dan can tell which one he saw; nothing when the data has none.
+const gloss = (meaning, c) => (meaning && meaning[c] ? el('span', { class: 'gloss' }, meaning[c].join(', ')) : null);
+
+// A row of candidates as large characters to tap, each with its first
+// meanings (`meaning`, by character, as the server answers it);
+// onPick(char, list, button) gets the list, whose place the result takes,
+// and the button he pressed, where the result is put.
+function candidateList(chars, onPick, meaning = {}) {
   const list = el('ul', { class: 'chars big candidates' });
-  list.append(...chars.map((c) => el('li', {}, el('button', { type: 'button', lang: 'ja', 'data-char': c, onclick: (e) => onPick(c, list, e.currentTarget) }, c))));
+  list.append(...chars.map((c) => el('li', {},
+    el('button', { type: 'button', lang: 'ja', 'data-char': c, onclick: (e) => onPick(c, list, e.currentTarget) }, c),
+    gloss(meaning, c))));
   return list;
 }

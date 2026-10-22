@@ -39,7 +39,7 @@ async function readInto(out, catchId, image, after = () => {}) {
   try {
     const got = await api('POST', `/catch/${catchId}/read`, image ? { image } : undefined);
     if (!got.candidates.length) { reading.textContent = 'No kanji from the data in it. It is kept as a loose end.'; return; }
-    const list = candidateList(got.candidates, (c, l, b) => choose(catchId, c, l, b).then(after).catch((e) => l.after(say(e.message, true))));
+    const list = candidateList(got.candidates, (c, l, b) => choose(catchId, c, l, b).then(after).catch((e) => l.after(say(e.message, true))), got.meaning);
     out.replaceChildren(el('p', { class: 'say' }, 'Tap the one you saw:'), list);
   } catch (e) {
     out.replaceChildren(say(`${e.message} It is kept as a loose end.`, true));
@@ -64,7 +64,7 @@ $('type-form').addEventListener('submit', async (e) => {
     const got = await api('POST', '/catch', { kind: 'typed', text: $('typed').value, where: where() });
     if (!got.candidates.length) { out.replaceChildren(say(got.message || 'No kanji from the data in what you typed.')); return; }
     out.replaceChildren(el('ul', { class: 'chars big candidates' }, got.candidates.map((c) =>
-      el('li', {}, el('a', { href: charLink(c, `?catch=${got.catch.id}`), lang: 'ja' }, c)))));
+      el('li', {}, el('a', { href: charLink(c, `?catch=${got.catch.id}`), lang: 'ja' }, c), gloss(got.meaning, c)))));
     loadHome();
   } catch (err) { out.replaceChildren(say(err.message, true)); }
 });
@@ -152,7 +152,7 @@ function resolver(c, li) {
     e.preventDefault();
     try {
       const got = await api('GET', `/data/candidates?text=${encodeURIComponent(typed.value)}`);
-      out.replaceChildren(got.candidates.length ? candidateList(got.candidates, pick) : say('No kanji from the data in what you typed.'));
+      out.replaceChildren(got.candidates.length ? candidateList(got.candidates, pick, got.meaning) : say('No kanji from the data in what you typed.'));
     } catch (err) { out.replaceChildren(say(err.message, true)); }
   } }, typed, el('button', { class: 'btn', type: 'submit' }, 'Look up'));
 
@@ -163,7 +163,7 @@ function resolver(c, li) {
     out.replaceChildren(say('Reading…'));
     try {
       const got = await api('POST', `/catch/${c.id}/read`, image ? { image } : undefined);
-      out.replaceChildren(got.candidates.length ? candidateList(got.candidates, pick) : say('No kanji from the data in it.'));
+      out.replaceChildren(got.candidates.length ? candidateList(got.candidates, pick, got.meaning) : say('No kanji from the data in it.'));
     } catch (e) { out.replaceChildren(say(e.message, true)); }
   };
   const buttons = el('div', { class: 'row' },
