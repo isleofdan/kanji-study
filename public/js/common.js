@@ -106,11 +106,44 @@ function reducePhoto(file, maxSide = 1600) {
   });
 }
 
-// A row of candidates as large characters to tap; onPick(char, list,
-// button) gets the list, whose place the result takes, and the button he
-// pressed, where the result is put.
-function candidateList(chars, onPick) {
+// Asks the server to explore `question` (the model is called only now).
+// `button` is replaced in place by "Thinking…", then by the result: a link
+// to the saved exploration, or the failure line with the button again
+// under it (rule 3). Answers the exploration.
+async function explore(question, button) {
+  const thinking = replaceInPlace(button, el('div', { class: 'thinking', role: 'status' }, 'Thinking…'));
+  let x;
+  try {
+    x = (await api('POST', '/explore', { question })).exploration;
+  } catch (e) {
+    replaceInPlace(thinking, el('div', {}, el('p', { class: 'say bad' }, e.message), button));
+    throw e;
+  }
+  const shown = x.error
+    ? el('div', { 'data-result': x.id }, el('p', { class: 'say bad' }, x.error), button)
+    : el('div', { class: 'result', 'data-result': x.id }, el('a', { href: `/explore/${x.id}` }, 'Open the result'));
+  button.style.marginTop = '';
+  replaceInPlace(thinking, shown);
+  return x;
+}
+
+// A group as one tappable line: its heading's words from the data and how
+// many characters it holds (Explore's themes and explorations).
+const groupLine = (g, query = '') => el('li', {}, el('a', { href: `/g/${encodeURIComponent(g.kind)}/${encodeURIComponent(g.value)}${query}` },
+  el('span', { lang: 'ja' }, g.label), ' ', el('span', { class: 'count' }, `${g.count.toLocaleString('en')} ${g.count === 1 ? 'character' : 'characters'}`)));
+
+// A candidate's first meanings from the data, in small text under it, so
+// Dan can tell which one he saw; nothing when the data has none.
+const gloss = (meaning, c) => (meaning && meaning[c] ? el('span', { class: 'gloss' }, meaning[c].join(', ')) : null);
+
+// A row of candidates as large characters to tap, each with its first
+// meanings (`meaning`, by character, as the server answers it);
+// onPick(char, list, button) gets the list, whose place the result takes,
+// and the button he pressed, where the result is put.
+function candidateList(chars, onPick, meaning = {}) {
   const list = el('ul', { class: 'chars big candidates' });
-  list.append(...chars.map((c) => el('li', {}, el('button', { type: 'button', lang: 'ja', 'data-char': c, onclick: (e) => onPick(c, list, e.currentTarget) }, c))));
+  list.append(...chars.map((c) => el('li', {},
+    el('button', { type: 'button', lang: 'ja', 'data-char': c, onclick: (e) => onPick(c, list, e.currentTarget) }, c),
+    gloss(meaning, c))));
   return list;
 }

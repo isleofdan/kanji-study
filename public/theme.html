@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{HEADING}} · {{TITLE}}</title>
+<link rel="stylesheet" href="/app.css">
+</head>
+<body data-page="theme">
+<header class="bar">
+  <a class="name" href="/">{{TITLE}}</a>
+  <nav><a href="/">Catch</a><a href="/explore">Explore</a><a href="/yours">Yours</a><a href="/status">Status</a></nav>
+</header>
+<main>
+  <h1 id="heading">{{HEADING}}</h1>
+  <p class="muted" id="count"></p>
+  <ul class="lines" id="groups" hidden></ul>
+  <ul class="chars big" id="chars" hidden></ul>
+  <button class="btn secondary" type="button" id="show-all" hidden>Show all</button>
+  <p class="source" id="source"></p>
+</main>
+<script src="/js/common.js"></script>
+<script src="/js/theme.js"></script>
+</body>
+</html>

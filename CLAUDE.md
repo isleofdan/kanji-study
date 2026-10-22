@@ -150,9 +150,16 @@ of `/data/home/dan/FACTS.md`.
 2. **A model never names a character the dataset does not hold, and never
    writes a fact.** Every fact and every group on screen comes from the
    KANJIDIC2 file (`data/kanji.json`). A model is used only to read a
-   drawing or a photo, and only when Dan presses a button; the server drops
-   any character it answers that is not in the dataset, and keeps the
-   answer only as candidates Dan taps to choose.
+   drawing or a photo, and to read a question typed on Explore into groups
+   and characters to start from, and only when Dan presses a button; the
+   server drops any character or group it answers that is not in the
+   dataset, keeps a drawing's or photo's answer only as candidates Dan taps
+   to choose, and labels every kept group or character from the data, never
+   by the model's words. The model's own words on screen are only its
+   one-sentence reading of the question and one sentence per place it
+   proposes, saying why; they are shown in italics under the heading "In
+   the model's words", and its instructions tell it they must not state
+   dictionary facts (meanings, readings, stroke counts).
 3. **A control keeps Dan's place.** Any button that changes something on
    the current page leaves him where he was: the element he acted on, or
    what took its place, sits at the same height on the screen. Saving a

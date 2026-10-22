@@ -251,6 +251,79 @@ test('a repeated catch of a saved character resolves the new catch and keeps the
   assert.deepEqual(char.catches.map((c) => c.id), [again.catch.id, first.catch.id]);
 });
 
+test('meanings: the character page shows the Meaning line; the char answer and every candidates answer carry meaning', async () => {
+  const page = await (await fetch(`${base}/k/${encodeURIComponent('峠')}`, { headers: { cookie: jar } })).text();
+  assert.match(page, /<div class="meaning" id="meaning"><h2>Meaning<\/h2><p>mountain peak, mountain pass, climax, crest, \(kokuji\)<\/p><\/div>/);
+  const none = await (await fetch(`${base}/k/${encodeURIComponent('乁')}`, { headers: { cookie: jar } })).text();
+  assert.match(none, /<h2>Meaning<\/h2><p>—<\/p>/);
+  const char = await (await json('GET', `/data/char/${encodeURIComponent('雨')}`)).json();
+  assert.deepEqual(char.kanji.meaning, ['rain']);
+  const typed = await (await json('POST', '/catch', { kind: 'typed', text: '峠の雨、乁' })).json();
+  assert.deepEqual(typed.candidates, ['峠', '雨', '乁']);
+  assert.deepEqual(typed.meaning, { 峠: ['mountain peak', 'mountain pass', 'climax'], 雨: ['rain'] });
+  const looked = await (await json('GET', `/data/candidates?text=${encodeURIComponent('峠')}`)).json();
+  assert.deepEqual(looked.meaning, { 峠: ['mountain peak', 'mountain pass', 'climax'] });
+  const drawn = await (await json('POST', '/catch', { kind: 'drawn', image: png(200, 200) })).json();
+  const read = await (await json('POST', `/catch/${drawn.catch.id}/read`)).json();
+  assert.deepEqual(read.meaning, { 雨: ['rain'], 峠: ['mountain peak', 'mountain pass', 'climax'] });
+});
+
+test('remove marks deleted_at and hides the catch from home and the character page; restore brings it back; no row is deleted', async () => {
+  const note = await (await json('POST', '/catch', { kind: 'note', note: 'a word on a menu' })).json();
+  const id = note.catch.id;
+  const typed = await (await json('POST', '/catch', { kind: 'typed', text: '鴎' })).json();
+  await json('POST', `/catch/${typed.catch.id}/choose`, { char: '鴎' });
+  const rows = () => { const db = records(); const n = db.prepare('SELECT COUNT(*) AS n FROM catches').get().n; db.close(); return n; };
+  const before = rows();
+
+  const r = await json('POST', `/catch/${id}/remove`);
+  assert.equal(r.status, 200);
+  const removed = (await r.json()).catch;
+  assert.match(removed.deleted_at, /^\d{4}-\d\d-\d\dT/);
+  let db = records();
+  assert.equal(db.prepare('SELECT deleted_at FROM catches WHERE id = ?').get(id).deleted_at, removed.deleted_at);
+  db.close();
+  let home = await (await json('GET', '/data/home')).json();
+  assert.ok(!home.loose.some((c) => c.id === id), 'gone from the loose ends');
+
+  await json('POST', `/catch/${typed.catch.id}/remove`);
+  home = await (await json('GET', '/data/home')).json();
+  assert.ok(!home.latest.some((c) => c.id === typed.catch.id), 'gone from latest');
+  let char = await (await json('GET', `/data/char/${encodeURIComponent('鴎')}`)).json();
+  assert.ok(!char.catches.some((c) => c.id === typed.catch.id), 'gone from the character page');
+
+  const back = await (await json('POST', `/catch/${id}/restore`)).json();
+  assert.equal(back.catch.deleted_at, null);
+  await json('POST', `/catch/${typed.catch.id}/restore`);
+  home = await (await json('GET', '/data/home')).json();
+  assert.ok(home.loose.some((c) => c.id === id), 'back among the loose ends');
+  char = await (await json('GET', `/data/char/${encodeURIComponent('鴎')}`)).json();
+  assert.ok(char.catches.some((c) => c.id === typed.catch.id), 'back on the character page');
+  assert.equal(rows(), before, 'no row deleted');
+
+  for (const action of ['remove', 'restore']) {
+    const bad = await json('POST', `/catch/999999/${action}`);
+    assert.equal(bad.status, 404);
+    assert.match((await bad.json()).error, /^no catch with id "999999"; catch ids are whole numbers from 1 to \d+$/);
+  }
+});
+
+test('the deleted_at column is added to a catches table made before it, keeping its rows', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanji-old-'));
+  const old = new Database(path.join(dir, 'kanji.db'));
+  old.exec(`CREATE TABLE catches (id INTEGER PRIMARY KEY AUTOINCREMENT, kind TEXT NOT NULL CHECK (kind IN ('typed', 'drawn', 'photo', 'note')),
+    char TEXT, note TEXT, where_seen TEXT, image TEXT, created_at TEXT NOT NULL, resolved_at TEXT)`);
+  old.prepare("INSERT INTO catches (kind, note, created_at) VALUES ('note', 'kept from before', '2026-10-01T00:00:00.000Z')").run();
+  old.close();
+  const { execFileSync } = require('node:child_process');
+  const out = execFileSync(process.execPath, ['-e', "const d = require('./lib/db'); console.log(JSON.stringify(d.looseEnds()))"], { cwd: root, env: { ...process.env, DATA_DIR: dir } }).toString();
+  const loose = JSON.parse(out);
+  assert.equal(loose.length, 1);
+  assert.equal(loose[0].note, 'kept from before');
+  assert.equal(loose[0].deleted_at, null);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
 test('reopening the home page makes no model request', async () => {
   const before = await calls();
   for (let i = 0; i < 3; i++) {
