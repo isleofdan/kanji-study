@@ -16,8 +16,32 @@ The 3 Oct 2026 afternoon run used a fresh builder on the faster CPU.
 | Check | What it proves |
 | - | - |
 | syntax | Every `.js`, `.mjs` and `.cjs` file outside `node_modules` parses (`node --check`, file by file). |
-| tests | `npm test`: the gate, the alive line, the status page and `lib/upstream.js`, against a real server (8 tests in the kit). |
-| screenshots | `npm run screenshots`: every screen at phone (412×915) and computer (1280×800) size, signing in through the form, with no sideways scrolling (16 checks in the kit). Needs Playwright's browser. |
+| tests | `npm test`: the gate, the alive line, the status page and `lib/upstream.js` (the kit's 8), plus this app's 17: the kanji data and its groups (`test/kanji.test.js`, 4), catches, reading against the stand-in model, choosing, saving and the opens record against a real server (`test/catch.test.js`, 12), and the missing model key (`test/vision.test.js`, 1). 25 tests. |
+| screenshots | `npm run screenshots`: every screen at phone (412×915) and computer (1280×800) size, in light and dark, signing in through the form, with no sideways scrolling; it walks Catch empty, Draw after "Read it", a character page, a group page with the origin outlined, Catch with loose ends and latest, Yours and Status, and measures that "Save"→"Saved" and choosing a candidate keep their place (103 checks, 30 images). Needs Playwright's browser. |
+
+The model in every check is the stand-in, `scripts/mock-openrouter.mjs`
+(after the Hebrew reader's), set by `OPENROUTER_URL`; no check calls the
+real OpenRouter. It answers 雨 and 峠, which are in the data, and 龘, which
+is not; the server keeps the first two. Tests and screenshots each use an
+empty records folder of their own, never `./var`.
+
+Counts as last run (kanji-one, 22 Oct 2026, the rented Linux machine,
+Node 24.21.0): `npm test` 25 tests, 25 passed; `npm run screenshots`
+103 checks, 103 passed; `npm run check` ended
+`check: all passed: syntax, tests, screenshots` in 34 s (syntax 1.81 s,
+tests 3.73 s, screenshots 28.00 s).
+
+"Save" to "Saved" at 412 px width (phone, light and dark): "Save" top
+146.09 px, "Saved" top 146.09 px, 0 px apart. Choosing a candidate at
+412 px: candidates top 513 px, result top 513 px, 0 px apart. At 1280 px:
+162.09 → 162.09 px and 392.5 → 392.5 px.
+
+**Japanese text in the screenshots.** A browser draws kanji only with a
+Japanese font. The rented Linux machine has none, so the runs above set
+`FONTCONFIG_FILE` to a scratch font folder holding Noto Sans JP; without
+it the checks still pass (they read text and positions, not pixels) but
+the images show boxes where the kanji are. Whether GitHub's runner has a
+Japanese font is not known here.
 
 `npm run check` runs all three in that order, stops at the first failure,
 and ends with one line: `check: all passed: …`, or
