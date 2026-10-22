@@ -306,7 +306,10 @@ route('GET', /^\/js\/([a-z]+\.js)$/, (req, res, m) => {
   if (!serveStatic(res, path.join(PUBLIC, 'js'), `/${m[1]}`)) return sendJson(res, 404, { error: 'not found' });
 });
 
-route('GET', /^\/img\/([^/]+)$/, (req, res, m) => {
+// Registers the service worker; loaded by every page behind the cookie.
+route('GET', /^\/install\.js$/, (req, res) => serveStatic(res, PUBLIC, '/install.js'));
+
+route('GET', /^\/img\/([^/]+)$/,(req, res, m) => {
   if (!images.validName(m[1]) || !serveStatic(res, db.IMAGES, `/${m[1]}`)) return sendJson(res, 404, { error: 'no such image' });
 });
 
@@ -322,7 +325,10 @@ route('GET', /^\/status$/, (req, res) => {
 
 // --- the server -------------------------------------------------------------
 
-const OPEN_FILES = new Set(['/app.css']);
+// The four files that make the site installable are open too, as the Hebrew
+// reader serves them: Chrome fetches the manifest and the icons without the
+// cookie, and none of them holds anything of Dan's.
+const OPEN_FILES = new Set(['/app.css', '/manifest.webmanifest', '/sw.js', '/icon-192.png', '/icon-512.png']);
 
 async function handle(req, res) {
   const url = new URL(req.url, 'http://x');
