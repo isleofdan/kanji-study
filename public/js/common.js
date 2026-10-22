@@ -106,6 +106,27 @@ function reducePhoto(file, maxSide = 1600) {
   });
 }
 
+// Asks the server to explore `question` (the model is called only now).
+// `button` is replaced in place by "Thinking…", then by the result: a link
+// to the saved exploration, or the failure line with the button again
+// under it (rule 3). Answers the exploration.
+async function explore(question, button) {
+  const thinking = replaceInPlace(button, el('div', { class: 'thinking', role: 'status' }, 'Thinking…'));
+  let x;
+  try {
+    x = (await api('POST', '/explore', { question })).exploration;
+  } catch (e) {
+    replaceInPlace(thinking, el('div', {}, el('p', { class: 'say bad' }, e.message), button));
+    throw e;
+  }
+  const shown = x.error
+    ? el('div', { 'data-result': x.id }, el('p', { class: 'say bad' }, x.error), button)
+    : el('div', { class: 'result', 'data-result': x.id }, el('a', { href: `/explore/${x.id}` }, 'Open the result'));
+  button.style.marginTop = '';
+  replaceInPlace(thinking, shown);
+  return x;
+}
+
 // A group as one tappable line: its heading's words from the data and how
 // many characters it holds (Explore's themes and explorations).
 const groupLine = (g, query = '') => el('li', {}, el('a', { href: `/g/${encodeURIComponent(g.kind)}/${encodeURIComponent(g.value)}${query}` },

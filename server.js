@@ -259,6 +259,10 @@ route('GET', /^\/g\/([^/]+)\/([^/]+)$/, (req, res, m) => {
   const kind = param(m[1]);
   const value = param(m[2]);
   try { kanji.group(kind, value); } catch (e) { return notFoundPage(res, e.status || 400, e.message); }
+  // Opened from an exploration (?exploration=<id>): one opens row naming
+  // the group and the exploration.
+  const from = new URL(req.url, 'http://x').searchParams.get('exploration');
+  if (from && /^\d+$/.test(from)) db.recordGroupOpen(kind, value, 'exploration', from);
   sendHtml(res, 200, page('group.html', { LABEL: kanji.label(kind, value) }));
 });
 
@@ -274,7 +278,23 @@ route('GET', /^\/explore\/theme\/([^/]+)$/, (req, res, m) => {
   sendHtml(res, 200, page('theme.html', { HEADING: t.title }));
 });
 
-route('GET', /^\/data\/explore$/, (req, res) => sendJson(res, 200, { themes: explore.themes() }));
+route('GET', /^\/data\/explore$/, (req, res) => sendJson(res, 200, { themes: explore.themes(), earlier: db.explorations() }));
+
+// --- Explore: Ask (lib/explore.js), the model only on this press ---------------
+// The question is saved first; the answer or the failure line is saved on
+// the same row, and the exploration is answered either way.
+route('POST', /^\/explore$/, async (req, res) => {
+  const body = await readJson(req);
+  sendJson(res, 200, { exploration: await explore.ask(body.question) });
+});
+
+route('GET', /^\/data\/exploration\/([^/]+)$/, (req, res, m) => sendJson(res, 200, { exploration: db.getExploration(param(m[1])) }));
+
+route('GET', /^\/explore\/([^/]+)$/, (req, res, m) => {
+  let x;
+  try { x = db.getExploration(param(m[1])); } catch (e) { return notFoundPage(res, e.status || 400, e.message); }
+  sendHtml(res, 200, page('exploration.html', { QUESTION: x.question }));
+});
 
 route('GET', /^\/data\/theme\/([^/]+)$/, (req, res, m) => {
   const t = explore.theme(param(m[1]));

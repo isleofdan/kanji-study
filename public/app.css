@@ -174,6 +174,18 @@ input.typebox { font-size: 26px; }
 .lines > li { border-bottom: 1px solid var(--line); }
 .lines a { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; min-height: 48px; padding: 12px 0; color: var(--accent); text-decoration: none; }
 .lines .count, .lines .meta { color: var(--muted); font-size: 15px; }
+.counter { margin: 6px 0 0; font-size: 15px; }
+.thinking { display: flex; align-items: center; justify-content: center; min-height: 50px; margin-top: 20px; border: 1px dashed var(--line); border-radius: 10px; color: var(--muted); font-weight: 600; }
+.asked { margin: 0; font-size: 15px; color: var(--muted); }
+.model-words { margin: 24px 0 8px; }
+.model-words h2 { font-size: 15px; font-weight: 400; color: var(--muted); margin: 0 0 4px; }
+.model-words .reading { font-style: italic; }
+.stops { margin: 8px 0 0; padding-left: 1.6em; }
+.stops > li { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.stops a { color: var(--accent); text-decoration: none; display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; min-height: 44px; }
+.stops .stop-char { font-family: var(--kanji-font); font-size: 40px; line-height: 1.1; }
+.stops .why { margin: 4px 0 0; font-style: italic; color: var(--fg); }
+.stops .count, .stops .gloss { color: var(--muted); font-size: 15px; }
 
 /* The character page. */
 .char-top { display: flex; flex-direction: column; align-items: flex-start; gap: 12px; margin: 8px 0 12px; }

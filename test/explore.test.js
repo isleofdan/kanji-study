@@ -150,6 +150,115 @@ test('each records theme appears only once its own records exist, showing groups
   assert.ok(last.groups.some((g) => g.label === '訓読み きり'));
 });
 
+const calls = async () => (await (await fetch(`${mock}/calls`)).json());
+const setFail = (fail) => fetch(`${mock}/control`, { method: 'POST', body: JSON.stringify({ fail }) });
+const QUESTION = 'characters I would meet on old weather signs';
+
+test('nothing calls the model until "Explore" is pressed', async () => {
+  const before = (await calls()).calls;
+  assert.equal((await open('/explore')).status, 200);
+  await get('/data/explore');
+  await open('/explore/theme/rare-radicals');
+  assert.equal((await calls()).calls, before);
+});
+
+test('POST /explore saves the question, keeps the three stops the data holds, drops two, and labels them from the data', async () => {
+  const before = (await calls()).calls;
+  const r = await json('POST', '/explore', { question: `  ${QUESTION}  ` });
+  assert.equal(r.status, 200);
+  const x = (await r.json()).exploration;
+  assert.equal((await calls()).calls, before + 1);
+  const last = (await calls()).last;
+  assert.equal(last.model, 'anthropic/claude-sonnet-4.6');
+  assert.equal(last.max_tokens, 1500);
+  assert.match(last.ask, /characters I would meet on old weather signs/);
+  assert.match(last.ask, /173 雨/, 'the radicals are listed with their numbers');
+  assert.match(last.ask, /may state a dictionary fact/);
+
+  assert.equal(x.question, QUESTION);
+  assert.equal(x.model, 'anthropic/claude-sonnet-4.6');
+  assert.equal(x.reading, 'You want characters you would meet on old signs about weather.');
+  assert.equal(x.dropped, 2);
+  assert.equal(x.error, null);
+  assert.ok(Number.isInteger(x.took_ms));
+  assert.deepEqual(x.stops.map((s) => s.label), ['部首 雨 (173)', '音読み ショウ', '峠']);
+  assert.deepEqual(x.stops[0], { kind: 'radical', value: '173', label: '部首 雨 (173)', count: x.stops[0].count, why: 'Weather words on signs are often built on this part.' });
+  assert.deepEqual(x.stops[2], { char: '峠', label: '峠', meaning: ['mountain peak', 'mountain pass', 'climax'], why: 'Old road signs in the hills often carry this one.' });
+
+  const db = records();
+  const row = db.prepare('SELECT * FROM explorations WHERE id = ?').get(x.id);
+  db.close();
+  assert.equal(row.question, QUESTION);
+  assert.equal(row.dropped, 2);
+  assert.deepEqual(JSON.parse(row.stops).map((s) => s.label), ['部首 雨 (173)', '音読み ショウ', '峠']);
+
+  const page = await open(`/explore/${x.id}`);
+  assert.equal(page.status, 200);
+  assert.match(await page.text(), /<h1 id="question">characters I would meet on old weather signs<\/h1>/);
+  assert.deepEqual((await get(`/data/exploration/${x.id}`)).exploration, x);
+});
+
+test('a model failure is saved on the row with its line; a garbled answer too', async () => {
+  await setFail('status');
+  const a = (await (await json('POST', '/explore', { question: 'temple plaques' })).json()).exploration;
+  await setFail('garbage');
+  const b = (await (await json('POST', '/explore', { question: 'temple plaques' })).json()).exploration;
+  await setFail(null);
+  assert.equal(a.error, 'Could not explore: the model answered 402 (Insufficient credits).');
+  assert.equal(b.error, 'Could not explore: the model did not answer the stops as JSON.');
+  const db = records();
+  assert.deepEqual(db.prepare('SELECT question, error FROM explorations WHERE id IN (?, ?) ORDER BY id').all(a.id, b.id).map((r) => ({ ...r })),
+    [{ question: 'temple plaques', error: a.error }, { question: 'temple plaques', error: b.error }]);
+  db.close();
+});
+
+test('with no key set, the question is saved with the line naming the missing key and nothing is called', async () => {
+  const before = (await calls()).calls;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'kanji-nokey-'));
+  const { execFileSync } = require('node:child_process');
+  const env = { ...process.env, DATA_DIR: dir, OPENROUTER_URL: `${mock}/v1/chat/completions` };
+  delete env.OPENROUTER_API_KEY;
+  const out = execFileSync(process.execPath, ['-e', "require('./lib/explore').ask('rare names').then((x) => console.log(JSON.stringify(x)))"], { cwd: root, env }).toString();
+  const x = JSON.parse(out);
+  assert.equal(x.question, 'rare names');
+  assert.equal(x.error, 'Could not explore: no OpenRouter key is set on the server (OPENROUTER_API_KEY).');
+  assert.equal((await calls()).calls, before);
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+test('a question is refused when empty or over 500 characters; an unknown exploration id is refused naming the valid ids', async () => {
+  const empty = await json('POST', '/explore', { question: '   ' });
+  assert.equal(empty.status, 400);
+  assert.deepEqual(await empty.json(), { error: 'question is required: up to 500 characters' });
+  const long = await json('POST', '/explore', { question: '雨'.repeat(501) });
+  assert.equal(long.status, 400);
+  assert.deepEqual(await long.json(), { error: 'question must be at most 500 characters; this one is 501' });
+  const bad = await json('GET', '/data/exploration/999');
+  assert.equal(bad.status, 404);
+  assert.match((await bad.json()).error, /^no exploration with id "999"; exploration ids are \d+(, \d+)*$/);
+  const page = await open('/explore/abc');
+  assert.equal(page.status, 404);
+  assert.match(await page.text(), /no exploration with id &quot;abc&quot;; exploration ids are /);
+});
+
+test('Earlier lists the explorations newest first', async () => {
+  const earlier = (await get('/data/explore')).earlier;
+  assert.ok(earlier.length >= 3);
+  assert.ok(earlier.every((x, i) => i === 0 || earlier[i - 1].id > x.id));
+  assert.deepEqual(Object.keys(earlier[0]), ['id', 'question', 'created_at', 'error']);
+});
+
+test('opening a character or a group from an exploration writes an opens row with exploration and its id', async () => {
+  const x = (await (await json('POST', '/explore', { question: QUESTION })).json()).exploration;
+  await open(`/k/${encodeURIComponent('峠')}?kind=exploration&value=${x.id}`);
+  assert.deepEqual(lastOpen(), { char: '峠', from_kind: 'exploration', from_value: String(x.id) });
+  await open(`/g/radical/173?exploration=${x.id}`);
+  const db = records();
+  const row = db.prepare('SELECT char, from_kind, from_value, group_kind, group_value FROM opens ORDER BY rowid DESC LIMIT 1').get();
+  db.close();
+  assert.deepEqual({ ...row }, { char: '', from_kind: 'exploration', from_value: String(x.id), group_kind: 'radical', group_value: '173' });
+});
+
 test('opening a character from a theme writes an opens row with theme and its id; an unknown origin writes none', async () => {
   await open(`/k/${encodeURIComponent('鬱')}?kind=theme&value=most-strokes`);
   assert.deepEqual(lastOpen(), { char: '鬱', from_kind: 'theme', from_value: 'most-strokes' });
