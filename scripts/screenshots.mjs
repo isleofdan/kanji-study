@@ -194,6 +194,14 @@ for (const [size, viewport] of Object.entries(SIZES)) {
     const latest = await page.$$eval('#latest a', (as) => as.map((a) => a.textContent));
     check(`${tag}: Latest shows the caught characters`, latest.includes('峠') && latest.includes('雨'), latest.join(' '));
     check(`${tag}: Loose ends shows the note`, (await page.textContent('#loose')).includes('plaque at the temple gate'));
+    // A shared link lands as a note whose text is one unbroken address; it
+    // must wrap inside its box, not run past it (Dan's phone, 23 Oct 2026).
+    await page.click('[data-panel=note]');
+    await page.fill('#note-text', 'https://kanji.jitenon.jp/cat/jinmei-no-break-anywhere-in-this-long-address');
+    await page.click('#note-keep');
+    await page.waitForFunction(() => document.querySelector('#loose').textContent.includes('jitenon'));
+    const spill = await page.$$eval('#loose .head', (hs) => hs.map((h) => h.scrollWidth - h.clientWidth));
+    check(`${tag}: a long address in a loose end stays inside its box`, spill.every((d) => d <= 0), `overflow ${spill.join(', ')} px`);
     await shot(page, 'catch-populated');
 
     await page.click('header nav a[href="/yours"]');
