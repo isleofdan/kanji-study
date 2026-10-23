@@ -56,7 +56,7 @@ text with no kanji, or a bare link, becomes a note under **Loose ends**; a
 PNG or JPEG picture becomes a photo catch with **Read it** and **Keep as a
 loose end**, as the **Photo** button makes one (other pictures are refused,
 naming PNG and JPEG). The model is called only when **Read it** is pressed.
-It works through four files served without the passphrase, as the Hebrew
+It works through five files served without the passphrase, as the Hebrew
 reader serves them, because Chrome fetches them without the sign-in
 cookie and they hold nothing of yours: `public/manifest.webmanifest` (the
 app's name, colours, icons and the share target: a `POST` of
@@ -64,8 +64,8 @@ app's name, colours, icons and the share target: a `POST` of
 `public/sw.js` (a service worker that keeps no copy of the app; the one
 thing it holds is a share in flight, until the share page reads it), and
 `public/icon-192.png` and `public/icon-512.png` (drawn by
-`scripts/make-icons.mjs`). `public/install.js`, loaded by every page behind
-the passphrase, registers the worker. A share that arrives signed out goes
+`scripts/make-icons.mjs`), and `public/install.js`, loaded by every page,
+the sign-in page included, which registers the worker. A share that arrives signed out goes
 to the sign-in page and comes back to `/share` after it. `POST /share`
 reaching the server (a browser without the worker) only redirects to
 `/share`, reading and saving nothing.

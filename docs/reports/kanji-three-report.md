@@ -7,15 +7,15 @@ Session kanji-three, on the rented Linux machine agent-machine-dan, in auto mode
 ## What stands
 
 - **Live since 01:05Z, 23 Oct 2026.** Branch `claude/kanji-three`, five commits on `main` (f6f7e7d), merged by pull request #7:
-  - 27b5db6, step 1: installable (manifest, worker, install.js, the 字 icons, the four open files)
+  - 27b5db6, step 1: installable (manifest, worker, install.js, the 字 icons, the open files)
   - 1c47220, step 2: the share target
   - 4165956, step 3: Status page, "On the phone"
   - c5b66b6, step 4: checks and docs
   - fd1fd0b, the fix for the checker's finding: a share saves once under its id, even after a lost answer
 - **Installable:** `public/manifest.webmanifest` sets `name` and `short_name` "Kanji", `start_url` and `scope` `/`, `display` `standalone`, and `background_color` `#fafaf8` and `theme_color` `#2f6f4f`, both taken from `public/app.css`. Two icons: 192 `any` and 512 `any maskable`, a white 字 on the accent green, drawn by `scripts/make-icons.mjs`.
   - `public/sw.js` installs with `skipWaiting`, activates with `clients.claim`, and passes every request to the network except the share `POST`.
-  - `public/install.js` registers the worker on every page, the sign-in page included, next to the manifest link and the `theme-color` meta.
-  - The four files are served without the cookie, `GET` only, through `OPEN_FILES`; `.webmanifest` is served as `application/manifest+json`.
+  - `public/install.js` registers the worker on every page. In pull request #7 the sign-in page carried only the manifest link and the `theme-color` meta, because `/install.js` was not among the files served signed out; the result check (job 20261023-062311-534981) found the omission and the test's exemption for it. Pull request #9 serves `/install.js` without the cookie too, loads it on the sign-in page, and drops the exemption.
+  - Five files are served without the cookie, `GET` only, through `OPEN_FILES` (the manifest, the worker, `install.js` and the two icons); `.webmanifest` is served as `application/manifest+json`.
 - **The share target:**
   - The manifest's `share_target`: `action` `/share`, `method` `POST`, `enctype` `multipart/form-data`, params `title`, `text`, `url`, and `files` named `photos`, accepting PNG and JPEG. The name `photos` is the one MDN's example uses (`public/sw.js:8`).
   - The worker holds the posted share under one key until the share page reads it, then the page removes it.
@@ -68,11 +68,12 @@ The screens are the share page "Shared to Kanji" (candidates, a photo with "Read
 1. **New table `shares`.** It was added by `CREATE TABLE IF NOT EXISTS` to keep the "saved once" promise after a lost answer (round 1's finding). The brief named no new table. No existing table changed.
 2. **The files field name is `photos`,** taken from MDN's example, as the brief asked ("take it from MDN").
 3. **The builder wrote the step 5 phone steps into scratch** (`/data/home/dan/work/scratch-kanji-three/live-check-material.md`); I carried them into this report.
+5. **The sign-in page loaded no `install.js` in pull request #7** (the builder kept the file behind the cookie, so the signed-out page could not load it, and exempted it in the test), against the brief's "every template, the sign-in page included". Corrected by the thread in pull request #9, as above, after the result check's findings 1 and 2.
 
 ## Verify results
 
 1. **Open files and the gate:**
-   - The four files answer 200 signed out with the right types.
+   - The five files answer 200 signed out with the right types (four in pull request #7; `install.js` added by pull request #9).
    - Every protected `GET` page redirects signed out, `GET /share` included.
    - `POST /share` answers 303 to `/share`, signed in or out, and writes no row.
    - All in `test/install.test.js` (13 tests).

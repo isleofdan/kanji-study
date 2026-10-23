@@ -340,7 +340,7 @@ route('GET', /^\/status$/, (req, res) => {
 // The four files that make the site installable are open too, as the Hebrew
 // reader serves them: Chrome fetches the manifest and the icons without the
 // cookie, and none of them holds anything of Dan's.
-const OPEN_FILES = new Set(['/app.css', '/manifest.webmanifest', '/sw.js', '/icon-192.png', '/icon-512.png']);
+const OPEN_FILES = new Set(['/app.css', '/manifest.webmanifest', '/sw.js', '/install.js', '/icon-192.png', '/icon-512.png']);
 
 async function handle(req, res) {
   const url = new URL(req.url, 'http://x');

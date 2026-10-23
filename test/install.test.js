@@ -38,10 +38,11 @@ test.before(async () => {
 });
 test.after(() => { server.kill(); fs.rmSync(DATA_DIR, { recursive: true, force: true }); });
 
-test('the four install files answer 200 signed out, with their content types', async () => {
+test('the five install files answer 200 signed out, with their content types', async () => {
   const want = {
     '/manifest.webmanifest': /^application\/manifest\+json$/,
     '/sw.js': /^text\/javascript/,
+    '/install.js': /^text\/javascript/,
     '/icon-192.png': /^image\/png$/,
     '/icon-512.png': /^image\/png$/,
   };
@@ -93,8 +94,7 @@ test('every page template carries the manifest link and the theme colour; every 
     const html = fs.readFileSync(path.join(PUBLIC, f), 'utf8');
     assert.match(html, /<link rel="manifest" href="\/manifest\.webmanifest">/, f);
     assert.match(html, /<meta name="theme-color" content="#2f6f4f">/, f);
-    // The sign-in page is served signed out, where /install.js is not.
-    if (f !== 'login.html') assert.match(html, /<script src="\/install\.js"><\/script>/, f);
+    assert.match(html, /<script src="\/install\.js"><\/script>/, f);
   }
 });
 
@@ -105,7 +105,7 @@ test('install.js answers signed in', async () => {
   assert.match(await r.text(), /serviceWorker\.register\('\/sw\.js'\)/);
 });
 
-for (const p of ['/', '/explore', '/yours', '/status', '/share', `/k/${encodeURIComponent('雨')}`, '/g/radical/173', '/explore/theme/most-strokes', '/install.js']) {
+for (const p of ['/', '/explore', '/yours', '/status', '/share', `/k/${encodeURIComponent('雨')}`, '/g/radical/173', '/explore/theme/most-strokes']) {
   test(`GET ${decodeURIComponent(p)} signed out redirects to sign-in`, async () => {
     const r = await fetch(`${base}${p}`, { redirect: 'manual' });
     assert.equal(r.status, 303);

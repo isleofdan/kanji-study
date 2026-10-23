@@ -113,6 +113,11 @@
   both on Dan's one yes. The session's push stalled eight hours on a
   prompt nobody could see; the route that worked and the machine-side fix
   owed are in the report ("Fly machine and OpenRig lessons", 0).
+- **After the walkthrough (pull request #9).** A shared link's address
+  spilled out of its Loose ends box on Dan's phone: the row now breaks
+  anywhere, with a browser check. The result check found the sign-in page
+  loaded no `install.js` (the file was behind the cookie): it is now the
+  fifth open file and every page loads it.
 - **Owed.** The `sqlite3` `deny` entry in `.claude/settings.json`, for a
   session in Accept edits. No `LEARNING.md` yet.
 - **What the next session needs.** Dan's week of real use decides the
