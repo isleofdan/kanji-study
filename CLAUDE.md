@@ -177,3 +177,13 @@ of `/data/home/dan/FACTS.md`.
    group or catch id answers 400 or 404 with a message that names what is
    valid (for example "kind must be one of list, grade, radical, strokes,
    on, kun, nanori, variant").
+7. **Installing and sharing (kanji-three).** `/manifest.webmanifest`,
+   `/sw.js`, `/icon-192.png` and `/icon-512.png` are served without the
+   cookie (`GET` only, through `OPEN_FILES`), as the Hebrew reader serves
+   them, because Chrome fetches them without cookies and they hold nothing
+   of Dan's; and `POST /share` answers, signed in or out, only a 303
+   redirect to `/share`, reading and saving nothing. Every other route,
+   `GET /share` included, stays behind the cookie. The service worker
+   keeps no copy of the app: it answers no request from a cache, so what
+   Dan sees is always the live site; the one thing it holds is a share in
+   flight, kept only until the share page has read it, then removed.

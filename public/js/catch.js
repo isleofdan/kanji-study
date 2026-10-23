@@ -4,7 +4,9 @@
 
 const $ = (id) => document.getElementById(id);
 const where = () => $('where').value.trim();
-const say = (text, bad = false) => el('p', { class: bad ? 'say bad' : 'say' }, text);
+// Choosing or reading (common.js) changed the records: Loose ends and Latest
+// follow.
+document.addEventListener('catches-changed', () => loadHome());
 
 // --- the four buttons open one panel at a time -------------------------------
 for (const b of document.querySelectorAll('[data-panel]')) {
@@ -16,44 +18,6 @@ for (const b of document.querySelectorAll('[data-panel]')) {
     }
     if (open && b.dataset.panel === 'type') $('typed').focus();
   });
-}
-
-// The result of choosing a candidate: what took the place of the control.
-const chosen = (char, saved) => el('div', { class: 'result', 'data-chosen': char },
-  el('span', { class: 'ja', lang: 'ja' }, char), saved ? ' saved to Yours. ' : ' chosen. ', el('a', { href: charLink(char) }, 'Open its page'));
-
-// Resolves the catch; the result takes the place of `control`, the list of
-// candidates, at the height of `pressed`, the candidate he tapped (rule 3).
-async function choose(catchId, char, control, pressed) {
-  const got = await api('POST', `/catch/${catchId}/choose`, { char });
-  replaceInPlace(control, chosen(got.char, got.saved), pressed);
-  loadHome();
-  return got;
-}
-
-// "Read it": shows "Reading…", then the candidates, or the line saying why
-// not. A pick resolves the catch in place of the list; `after` runs then.
-async function readInto(out, catchId, image, after = () => {}) {
-  const reading = say('Reading…');
-  out.replaceChildren(reading);
-  try {
-    const got = await api('POST', `/catch/${catchId}/read`, image ? { image } : undefined);
-    if (!got.candidates.length) { reading.textContent = 'No kanji from the data in it. It is kept as a loose end.'; return; }
-    const list = candidateList(got.candidates, (c, l, b) => choose(catchId, c, l, b).then(after).catch((e) => l.after(say(e.message, true))), got.meaning);
-    out.replaceChildren(el('p', { class: 'say' }, 'Tap the one you saw:'), list);
-  } catch (e) {
-    out.replaceChildren(say(`${e.message} It is kept as a loose end.`, true));
-  }
-  loadHome();
-}
-
-// A "Keep" control that, once pressed, shows "Kept as a loose end." in its
-// place, and comes back as soon as he starts the next catch (`ready()`).
-function keeper(out, button) {
-  return {
-    done() { replaceInPlace(button, say('Kept as a loose end.')); },
-    ready() { button.style.minHeight = ''; out.replaceChildren(button); },
-  };
 }
 
 // --- Type ---------------------------------------------------------------------

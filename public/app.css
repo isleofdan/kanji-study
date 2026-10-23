@@ -137,6 +137,8 @@ input.typebox { font-size: 26px; }
 .preview { display: block; max-width: 100%; max-height: 280px; margin: 12px auto 0; border-radius: 10px; }
 .say { min-height: 1.5em; margin: 10px 0 0; color: var(--muted); }
 .say.bad { color: var(--bad); }
+/* What another app shared, as it came (the share page). */
+.shared { margin: 12px 0 0; padding: 10px 14px; border-left: 3px solid var(--line); white-space: pre-wrap; overflow-wrap: anywhere; }
 
 /* Large tappable characters: candidates, groups, Yours, Latest. */
 .chars { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 8px; margin: 12px 0; padding: 0; list-style: none; }

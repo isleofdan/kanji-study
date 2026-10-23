@@ -30,7 +30,7 @@ const SCHEMES = ['light', 'dark'];
 // The screens, in the order the walk reaches them; each is saved as
 // <name>-<size>-<scheme>.png.
 const SCREENS = ['catch-empty', 'draw-read', 'char', 'group', 'catch-populated', 'yours', 'type-candidates', 'loose-before-remove', 'loose-removed',
-  'explore-themes', 'theme', 'exploration', 'explore-earlier', 'status'];
+  'explore-themes', 'theme', 'exploration', 'explore-earlier', 'share-candidates', 'share-photo', 'share-nothing', 'status'];
 const mockControl = (body) => fetch(`http://127.0.0.1:${MOCK_PORT}/control`, { method: 'POST', body: JSON.stringify(body) });
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -394,14 +394,110 @@ for (const [size, viewport] of Object.entries(SIZES)) {
     await page.locator('#earlier-part').scrollIntoViewIfNeeded();
     await shot(page, 'explore-earlier');
 
+    // Installable: the service worker registers on the Catch page.
+    await page.goto(`${base}/`);
+    const registered = await page.evaluate(() => Promise.race([navigator.serviceWorker.ready.then(() => true), new Promise((r) => setTimeout(() => r(false), 10000))]));
+    check(`${tag}: the service worker registers on Catch`, registered);
+
+    // A share, the way the phone sends one: a multipart POST navigation to
+    // /share, which the worker holds and redirects to the share page.
+    const records = () => page.evaluate(async () => {
+      const home = await (await fetch('/data/home', { headers: { accept: 'application/json' } })).json();
+      return { loose: home.loose.map((c) => `${c.id}:${c.kind}:${c.note ?? ''}`), latest: home.latest.map((c) => c.id) };
+    });
+    const share = async (fields, file = null) => {
+      await page.evaluate(async ({ fields, file }) => {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.enctype = 'multipart/form-data';
+        form.action = '/share';
+        for (const [name, value] of Object.entries(fields)) form.append(Object.assign(document.createElement('input'), { type: 'hidden', name, value }));
+        const input = Object.assign(document.createElement('input'), { type: 'file', name: 'photos' });
+        if (file) {
+          let blob;
+          if (file.type === 'image/jpeg') {
+            const c = Object.assign(document.createElement('canvas'), { width: 320, height: 240 });
+            const ctx = c.getContext('2d');
+            ctx.fillStyle = '#909090'; ctx.fillRect(0, 0, 320, 240);
+            blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.8));
+          } else {
+            blob = new Blob([Uint8Array.from(atob(file.b64), (ch) => ch.charCodeAt(0))], { type: file.type });
+          }
+          const dt = new DataTransfer();
+          dt.items.add(new File([blob], file.name, { type: file.type }));
+          input.files = dt.files;
+        }
+        form.append(input);
+        document.body.append(form);
+        form.submit();
+      }, { fields, file });
+      await page.waitForURL(`${base}/share`);
+      await page.waitForSelector('#share-out :is(.candidates, #saved, #nothing, .say.bad)');
+    };
+
+    await share({ title: 'a message', text: '雨と峠' });
+    const shareGloss = await page.$$eval('#share-out .candidates li', (ls) => ls.map((l) => `${l.querySelector('a').textContent}: ${l.querySelector('.gloss')?.textContent ?? ''}`));
+    check(`${tag}: shared text 雨と峠 shows its two candidates with their meanings`, shareGloss.join(' / ') === '雨: rain / 峠: mountain peak, mountain pass, climax', shareGloss.join(' / '));
+    check(`${tag}: the share page's heading is "Shared to Kanji"`, (await page.textContent('h1')) === 'Shared to Kanji');
+    await shot(page, 'share-candidates');
+
+    await share({ title: 'a page', text: 'no kanji here', url: 'https://example.com/a' });
+    const afterNote = await records();
+    check(`${tag}: shared text with no kanji and a link makes a note loose end`, afterNote.loose.some((r) => /:note:no kanji here\nhttps:\/\/example\.com\/a$/.test(r)), afterNote.loose.slice(-1).join(' '));
+
+    await share({ title: 'a sign' }, { name: 'sign.jpg', type: 'image/jpeg' });
+    check(`${tag}: a shared JPEG shows "Read it" and Keep`, (await page.isVisible('#share-read')) && (await page.isVisible('#share-keep')) && (await page.textContent('#saved')) === 'Saved as a loose end.');
+    const afterPhoto = await records();
+    check(`${tag}: the shared JPEG is a photo loose end in the home answer`, afterPhoto.loose.length === afterNote.loose.length + 1 && afterPhoto.loose.at(-1).includes(':photo:'), afterPhoto.loose.slice(-1).join(' '));
+    await shot(page, 'share-photo');
+    const keepTop = await top(page.locator('#share-keep'));
+    await page.click('#share-keep');
+    await page.waitForSelector('#share-photo-out .say');
+    const keptTop = await top(page.locator('#share-photo-out .say'));
+    check(`${tag}: the share page's Keep says "Kept as a loose end." in its place`, (await page.textContent('#share-photo-out .say')) === 'Kept as a loose end.' && Math.abs(keptTop - keepTop) < 1, `Keep top ${keepTop} px, line top ${keptTop} px`);
+    await page.click('#share-read');
+    await page.waitForSelector('#share-photo-out .candidates');
+    const readChars = await page.$$eval('#share-photo-out .candidates button', (bs) => bs.map((b) => b.textContent));
+    check(`${tag}: "Read it" on a shared picture shows the candidates in the data`, [...readChars].sort().join('') === '峠雨', readChars.join(' '));
+
+    const beforeReload = await records();
+    await page.reload();
+    await page.waitForSelector('#nothing');
+    check(`${tag}: a reload of the share page finds nothing`, (await page.textContent('#nothing')) === 'Nothing was shared. Share text or a picture to Kanji from another app.');
+    const afterReload = await records();
+    check(`${tag}: the reload saved nothing twice`, JSON.stringify(afterReload) === JSON.stringify(beforeReload), `${beforeReload.loose.length} → ${afterReload.loose.length} loose ends`);
+    await shot(page, 'share-nothing');
+
+    await share({}, { name: 'dot.gif', type: 'image/gif', b64: 'R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==' });
+    const gifSay = await page.textContent('#share-out .say.bad');
+    check(`${tag}: a shared GIF is refused naming PNG and JPEG`, gifSay.includes('PNG') && gifSay.includes('JPEG') && gifSay.includes('GIF'), gifSay);
+    check(`${tag}: the refused GIF saved nothing`, JSON.stringify(await records()) === JSON.stringify(afterReload));
+
+    // The save reaches the server but its answer is lost: the share stays
+    // held, and a reload saves it once, not twice.
+    await page.route(`${base}/catch`, async (route) => { await route.fetch(); await route.abort('connectionreset'); }, { times: 1 });
+    await share({ title: 'a line', text: '雨' });
+    const lostSay = await page.textContent('#share-out .say.bad');
+    const afterLost = await records();
+    check(`${tag}: a share whose answer is lost says it is kept`, lostSay.includes('What was shared is kept here') && afterLost.loose.length === afterReload.loose.length + 1, `${lostSay}; ${afterReload.loose.length} → ${afterLost.loose.length} loose ends`);
+    await page.reload();
+    await page.waitForSelector('#share-out .candidates');
+    const afterRetry = await records();
+    check(`${tag}: the reload after a lost answer saves nothing twice`, JSON.stringify(afterRetry) === JSON.stringify(afterLost), `${afterLost.loose.length} → ${afterRetry.loose.length} loose ends`);
+    await page.reload();
+    await page.waitForSelector('#nothing');
+
     await page.goto(`${base}/status`);
     check(`${tag}: status shows "alive since"`, (await page.textContent('body')).includes('alive since '));
+    await page.waitForFunction(() => !document.getElementById('phone-install').textContent.includes('Checking') && !document.getElementById('phone-share').textContent.includes('Checking'));
+    check(`${tag}: Status says the app can be installed`, (await page.textContent('#phone-install')) === "The app can be installed from Chrome's menu");
+    check(`${tag}: Status says other apps can share pictures to it`, (await page.textContent('#phone-share')).startsWith('Other apps can share text and links, and PNG or JPEG pictures,'));
     await shot(page, 'status');
     await context.close();
   }
 }
 await browser.close();
 const calls = await (await fetch(`http://127.0.0.1:${MOCK_PORT}/calls`)).json();
-check('the stand-in model was asked once per "Read it" and once per question asked, and no more', calls.calls === Object.keys(SIZES).length * SCHEMES.length * 3, `${calls.calls} calls`);
+check('the stand-in model was asked once per "Read it" and once per question asked, and no more', calls.calls === Object.keys(SIZES).length * SCHEMES.length * 4, `${calls.calls} calls`);
 console.log(failed ? `${failed} check(s) failed` : `all checks passed; ${SCREENS.length} screens × 2 sizes × 2 schemes in ${out}`);
 process.exit(failed ? 1 : 0);

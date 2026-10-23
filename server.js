@@ -99,6 +99,7 @@ route('GET', /^\/$/, (req, res) => sendHtml(res, 200, page('index.html')));
 // drawing or a photo when Dan presses "Read it" (lib/vision.js).
 
 const IMAGE_BODY_MAX = 8 * 1024 * 1024;
+const SHARE_ID = /^[A-Za-z0-9-]{8,64}$/;
 const text = (v, max = 500) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null);
 const param = (s) => { try { return decodeURIComponent(s); } catch { return s; } };
 
@@ -124,21 +125,28 @@ route('POST', /^\/catch$/, async (req, res) => {
   const kind = body.kind;
   if (!db.CATCH_KINDS.includes(kind)) throw Object.assign(new Error(`kind must be one of ${db.CATCH_KINDS.join(', ')}`), { status: 400 });
   const where = text(body.where);
+  // A share from another app carries the id the service worker gave it; the
+  // same id again (a reload after the answer was lost) answers the catch it
+  // already became, saving nothing new.
+  const shareId = body.share_id ?? null;
+  if (shareId !== null && !SHARE_ID.test(String(shareId))) throw Object.assign(new Error('share_id must be 8 to 64 letters, digits or dashes'), { status: 400 });
+  const prior = shareId ? db.sharedCatch(shareId) : null;
   if (kind === 'typed') {
     const typed = text(body.text, 200);
     const candidates = kanji.inText(typed);
     if (!candidates.length) return sendJson(res, 200, { catch: null, candidates: [], meaning: {}, message: 'No kanji from the data in what you typed.' });
-    const c = db.addCatch({ kind, note: typed, where });
+    const c = prior || db.addCatch({ kind, note: typed, where, shareId });
     return sendJson(res, 200, { catch: shown(c), candidates, meaning: meanings(candidates) });
   }
   if (kind === 'note') {
     const note = text(body.note);
     if (!note) throw Object.assign(new Error('note is required for a note catch'), { status: 400 });
-    return sendJson(res, 200, { catch: shown(db.addCatch({ kind, note, where })), candidates: [] });
+    return sendJson(res, 200, { catch: shown(prior || db.addCatch({ kind, note, where, shareId })), candidates: [] });
   }
   if (!body.image) throw Object.assign(new Error(`image is required for a ${kind} catch`), { status: 400 });
+  if (prior) return sendJson(res, 200, { catch: shown(prior), candidates: [] });
   const image = images.store(body.image);
-  return sendJson(res, 200, { catch: shown(db.addCatch({ kind, note: text(body.note), where, image })), candidates: [] });
+  return sendJson(res, 200, { catch: shown(db.addCatch({ kind, note: text(body.note), where, image, shareId })), candidates: [] });
 });
 
 // Sends the catch's image to the model, once per press. The catch stays a
@@ -268,6 +276,10 @@ route('GET', /^\/g\/([^/]+)\/([^/]+)$/, (req, res, m) => {
 
 route('GET', /^\/yours$/, (req, res) => sendHtml(res, 200, page('yours.html')));
 
+// What another app shared, held by the service worker (public/sw.js); the
+// page's script reads it and saves it (public/js/share.js).
+route('GET', /^\/share$/, (req, res) => sendHtml(res, 200, page('share.html')));
+
 // --- Explore: themes computed by code (lib/explore.js) -------------------------
 
 route('GET', /^\/explore$/, (req, res) => sendHtml(res, 200, page('explore.html')));
@@ -306,7 +318,10 @@ route('GET', /^\/js\/([a-z]+\.js)$/, (req, res, m) => {
   if (!serveStatic(res, path.join(PUBLIC, 'js'), `/${m[1]}`)) return sendJson(res, 404, { error: 'not found' });
 });
 
-route('GET', /^\/img\/([^/]+)$/, (req, res, m) => {
+// Registers the service worker; loaded by every page behind the cookie.
+route('GET', /^\/install\.js$/, (req, res) => serveStatic(res, PUBLIC, '/install.js'));
+
+route('GET', /^\/img\/([^/]+)$/,(req, res, m) => {
   if (!images.validName(m[1]) || !serveStatic(res, db.IMAGES, `/${m[1]}`)) return sendJson(res, 404, { error: 'no such image' });
 });
 
@@ -322,7 +337,10 @@ route('GET', /^\/status$/, (req, res) => {
 
 // --- the server -------------------------------------------------------------
 
-const OPEN_FILES = new Set(['/app.css']);
+// The four files that make the site installable are open too, as the Hebrew
+// reader serves them: Chrome fetches the manifest and the icons without the
+// cookie, and none of them holds anything of Dan's.
+const OPEN_FILES = new Set(['/app.css', '/manifest.webmanifest', '/sw.js', '/icon-192.png', '/icon-512.png']);
 
 async function handle(req, res) {
   const url = new URL(req.url, 'http://x');
@@ -333,6 +351,10 @@ async function handle(req, res) {
   if (p === '/login' && req.method === 'POST') return handleLogin(req, res);
   if (p === '/logout') return redirect(res, '/login', { 'set-cookie': auth.clearCookie({ secure: SECURE_COOKIE }) });
   if (req.method === 'GET' && OPEN_FILES.has(p) && serveStatic(res, PUBLIC, p)) return;
+  // A share that reaches the server (a browser without the service worker):
+  // signed in or out, it is sent on to the share page, reading and saving
+  // nothing; that page then says nothing was shared.
+  if (p === '/share' && req.method === 'POST') { req.resume(); return redirect(res, '/share'); }
 
   if (!CONFIGURED || !auth.cookieOk(req, COOKIE_SECRET)) {
     if (p.startsWith('/api/') || wantsJson(req)) return sendJson(res, 401, { error: 'sign in first' });

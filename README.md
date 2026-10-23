@@ -42,7 +42,33 @@ What you see when you sign in:
   than 300 show the first 300 and a **Show all** button.
 - **Yours**: your saved characters, newest first.
 - **Status**: when this copy started, which version it runs, the last
-  failure from outside the app, and where the kanji facts come from.
+  failure from outside the app, where the kanji facts come from, and
+  **On the phone**: whether this browser can install the app and whether
+  other apps can share to it.
+- **Shared to Kanji** (`/share`): what another app shared, saved at once.
+
+**Installing and sharing.** On the phone, Chrome's own menu installs the
+site as an app ("Add to Home screen" or "Install app"): the 字 icon on the
+home screen opens Catch with no browser bar. Nothing in the app asks you
+to install it. Once installed, "Share" in any other app lists **Kanji**.
+Shared text holding kanji becomes a typed catch with its candidates to tap;
+text with no kanji, or a bare link, becomes a note under **Loose ends**; a
+PNG or JPEG picture becomes a photo catch with **Read it** and **Keep as a
+loose end**, as the **Photo** button makes one (other pictures are refused,
+naming PNG and JPEG). The model is called only when **Read it** is pressed.
+It works through four files served without the passphrase, as the Hebrew
+reader serves them, because Chrome fetches them without the sign-in
+cookie and they hold nothing of yours: `public/manifest.webmanifest` (the
+app's name, colours, icons and the share target: a `POST` of
+`multipart/form-data` to `/share`, the picture under `photos`),
+`public/sw.js` (a service worker that keeps no copy of the app; the one
+thing it holds is a share in flight, until the share page reads it), and
+`public/icon-192.png` and `public/icon-512.png` (drawn by
+`scripts/make-icons.mjs`). `public/install.js`, loaded by every page behind
+the passphrase, registers the worker. A share that arrives signed out goes
+to the sign-in page and comes back to `/share` after it. `POST /share`
+reaching the server (a browser without the worker) only redirects to
+`/share`, reading and saving nothing.
 
 Nothing reminds, counts streaks, or awards anything. A model is used for
 two things only: reading a drawing or a photo, when **Read it** is
