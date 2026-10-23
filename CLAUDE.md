@@ -178,7 +178,7 @@ of `/data/home/dan/FACTS.md`.
    valid (for example "kind must be one of list, grade, radical, strokes,
    on, kun, nanori, variant").
 7. **Installing and sharing (kanji-three).** `/manifest.webmanifest`,
-   `/sw.js`, `/icon-192.png` and `/icon-512.png` are served without the
+   `/sw.js`, `/install.js`, `/icon-192.png` and `/icon-512.png` are served without the
    cookie (`GET` only, through `OPEN_FILES`), as the Hebrew reader serves
    them, because Chrome fetches them without cookies and they hold nothing
    of Dan's; and `POST /share` answers, signed in or out, only a 303
