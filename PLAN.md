@@ -95,3 +95,27 @@
   (the model is one constant); themes beyond KANJIDIC2 still need a
   sourced dataset; "a next character with a reason" can now also read
   group opens. Report: `docs/reports/kanji-two-report.md`.
+
+## Close-out: kanji-three (23 Oct 2026)
+
+- **What stands.** Live at https://kanji-study-dan.fly.dev from pull
+  request #7 (merge e78426b) and Deploy run 39881796510: Kanji installs
+  on the phone as an app (`public/manifest.webmanifest`, `public/sw.js`,
+  `public/install.js`, the 字 icons, four files served without the
+  cookie); Kanji is a Share target (`POST /share`, held by the worker,
+  read by `GET /share` behind the cookie: text with kanji becomes a typed
+  catch with candidates, text or a link a note loose end, a PNG or JPEG a
+  photo loose end with "Read it"); Status has "On the phone".
+- **The new table.** `shares` (`share_id` primary key, `catch_id`,
+  `created_at`), by `CREATE TABLE IF NOT EXISTS`, so a share saves once
+  even after a lost answer. No existing table changed.
+- **Decided.** A machine session never merges or deploys; the thread does
+  both on Dan's one yes. The session's push stalled eight hours on a
+  prompt nobody could see; the route that worked and the machine-side fix
+  owed are in the report ("Fly machine and OpenRig lessons", 0).
+- **Owed.** The `sqlite3` `deny` entry in `.claude/settings.json`, for a
+  session in Accept edits. No `LEARNING.md` yet.
+- **What the next session needs.** Dan's week of real use decides the
+  next revision; candidates on the card: Ask on the top-tier model if
+  picks stay hit-and-miss; "a next character with a reason". Report:
+  `docs/reports/kanji-three-report.md`.
