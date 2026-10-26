@@ -44,7 +44,7 @@ test.before(async () => {
   procs.push(spawn('node', ['scripts/mock-openrouter.mjs', String(MOCK_PORT)], { cwd: root, stdio: ['ignore', 'ignore', 'inherit'] }));
   procs.push(spawn('node', ['server.js'], {
     cwd: root,
-    env: { ...process.env, PORT: String(PORT), APP_PASSWORD: PASS, COOKIE_SECRET: 'x'.repeat(64), COOKIE_INSECURE: '1', DATA_DIR,
+    env: { ...process.env, PORT: String(PORT), APP_PASSWORD: PASS, COOKIE_SECRET: 'x'.repeat(64), COOKIE_INSECURE: '1', SENTRY_DSN: '', DATA_DIR,
       OPENROUTER_API_KEY: 'test-key', OPENROUTER_URL: `${mock}/v1/chat/completions` },
     stdio: ['ignore', 'ignore', 'inherit'],
   }));

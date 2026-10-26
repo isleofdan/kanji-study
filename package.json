@@ -12,12 +12,16 @@
     "dev": "COOKIE_INSECURE=1 node server.js",
     "test": "node --test test/*.test.js",
     "screenshots": "node scripts/screenshots.mjs",
-    "check": "node scripts/check.mjs"
+    "check": "node scripts/check.mjs",
+    "build": "node scripts/build-sentry.mjs"
   },
   "devDependencies": {
+    "esbuild": "^0.28.2",
     "playwright": "1.56.1"
   },
   "dependencies": {
+    "@sentry/browser": "^11.9.0",
+    "@sentry/node": "^11.9.0",
     "better-sqlite3": "^13.0.3"
   }
 }

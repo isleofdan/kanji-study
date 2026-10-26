@@ -51,7 +51,7 @@ async function freshServer() {
   dataDir = mkdtempSync(join(tmpdir(), 'kanji-shots-'));
   server = spawn('node', ['server.js'], {
     cwd: root,
-    env: { ...process.env, PORT: String(PORT), APP_PASSWORD: PASS, COOKIE_SECRET: 'x'.repeat(64), COOKIE_INSECURE: '1', DATA_DIR: dataDir,
+    env: { ...process.env, PORT: String(PORT), APP_PASSWORD: PASS, COOKIE_SECRET: 'x'.repeat(64), COOKIE_INSECURE: '1', SENTRY_DSN: '', DATA_DIR: dataDir,
       OPENROUTER_API_KEY: 'screenshot-key', OPENROUTER_URL: `http://127.0.0.1:${MOCK_PORT}/v1/chat/completions` },
     stdio: ['ignore', 'ignore', 'inherit'],
   });

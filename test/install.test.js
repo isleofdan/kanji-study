@@ -29,7 +29,7 @@ const home = async () => (await fetch(`${base}/data/home`, { headers: { cookie: 
 test.before(async () => {
   server = spawn('node', ['server.js'], {
     cwd: path.join(__dirname, '..'),
-    env: { ...process.env, PORT: String(PORT), APP_PASSWORD: PASS, COOKIE_SECRET: 'x'.repeat(64), COOKIE_INSECURE: '1', DATA_DIR },
+    env: { ...process.env, PORT: String(PORT), APP_PASSWORD: PASS, COOKIE_SECRET: 'x'.repeat(64), COOKIE_INSECURE: '1', SENTRY_DSN: '', DATA_DIR },
     stdio: ['ignore', 'ignore', 'inherit'],
   });
   await up();
