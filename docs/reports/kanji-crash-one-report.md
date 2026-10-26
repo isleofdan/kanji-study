@@ -1,8 +1,10 @@
 # FIELD REPORT — kanji-crash-one — 2026-10-26
 
-Nothing has changed on Dan's screen yet: the crash card for the kanji app
-appears on the Wall only after this pull request is merged and deployed,
-and the deploy's own crash check runs.
+On the Wall there is a new card, https://spine-dan.fly.dev/wall?card=crash-kanji-study-kanji-study-1,
+named "kanji-study: Error: crash-test: kanji study reports crashes", in
+Claude Code's court, with a door to the Sentry issue
+(https://shulman-advisory.sentry.io/issues/156256558/). It is the kanji
+app's own deliberate crash from the deploy, so the chain works end to end.
 
 Session `kanji-crash-one`, on the rented Linux machine (agent-machine-dan),
 26 Oct 2026. Brief: the newest `# START HERE — kanji-crash-one` note on the
@@ -72,10 +74,22 @@ keeps a queue watch and sends a progress line every 10 minutes.
 - **The Sentry project.** `kanji-study` answered 200 to this session's
   read; its active key's public DSN is the one in `fly.toml`. Nothing was
   created or changed in Sentry.
-- **The chain (app → Sentry → Spine → Wall card).** Not yet proven:
-  waiting for the merge. The origin thread merges on Dan's typed line;
-  merging deploys the live app, and the deploy's crash check produces the
-  first issue.
+- **The chain (app → Sentry → Spine → Wall card): proven.** Pull request
+  #12 merged at 11:52:43Z (merge commit 80ed980) by the origin thread on
+  Dan's typed line. Deploy run 40318392027
+  (https://github.com/isleofdan/kanji-study/actions/runs/40318392027)
+  completed with success; its step "Check a crash reaches Sentry" printed
+  `sign-in form: HTTP 303` and `crash-test: 500` at 11:54:51Z. The Spine's
+  Sentry hook (`filed_by: hook:sentry`) filed card
+  `crash-kanji-study-kanji-study-1` at 11:55:07Z: name "kanji-study:
+  Error: crash-test: kanji study reports crashes", what "… In
+  Object.run(server). Level error. First seen 2026-10-26T11:54:51.596…
+  Seen 1 occurrence. Handled.", court claude-code, door "Sentry issue"
+  https://shulman-advisory.sentry.io/issues/156256558/. Read with
+  `find_thread`. Reading Sentry's issue list directly with the machine's
+  token answered 403 (both the project and the organization issue lists),
+  so the issue is shown through the card Sentry's own call filed, not
+  through Sentry's API.
 - **The team is stopped.** `rig down kanji-crash-one-mixed --snapshot`
   gave snapshot `01M5VZAAK0ZRS3QSHJ0V37J7SE`; OpenRig printed the restore
   line `rig up kanji-crash-one-mixed` (only to continue this job).
@@ -121,9 +135,9 @@ keeps a queue watch and sends a progress line every 10 minutes.
 | Screenshots vs main | byte-identical (dev-check, `git diff --exit-code`, exit 0) |
 | dev-check round 1 (4d487ab) | PASS; also a browser proof against a local stand-in Sentry: exactly one event, no private text, query, fragment or auth markers |
 | dev-check round 2 (2259cd5) | PASS |
-| Chain: deploy step prints `crash-test: 500` | not yet run (needs the merge) |
-| Chain: Sentry issue titled with `crash-test` | not yet (needs the merge) |
-| Chain: Wall card `crash-kanji-study-*` | not yet (needs the merge) |
+| Chain: deploy step prints `crash-test: 500` | `crash-test: 500` (run 40318392027, success) |
+| Chain: Sentry issue titled with `crash-test` | issue 156256558, shown by the hook's card; Sentry's issues API answered 403 to the machine's token |
+| Chain: Wall card `crash-kanji-study-*` | `crash-kanji-study-kanji-study-1`, filed 11:55:07Z by hook:sentry |
 
 ## Checks
 
@@ -139,7 +153,10 @@ keeps a queue watch and sends a progress line every 10 minutes.
   bundle claim had no quoted comparison; the card filing and the pull
   request comment were not recorded. Changed: the `cmp` result quoted
   above; the section "Close-out records" added.
-- Result check 3: on the card and in the pull request comment.
+- Result check 3: job `20261026-113248-fca6f7`, PASS (report before the
+  merge, pull request #12).
+- Result check 4 (this version, with the chain result, on the report
+  pull request): on the card and in that pull request's comment.
 
 ## Close-out records
 
@@ -159,14 +176,23 @@ keeps a queue watch and sends a progress line every 10 minutes.
   ("BLOCKED. Session kanji-crash-one. Chain: not proven: waiting for the
   merge, which only the origin thread gives, on Dan's typed line. Card
   crash-reporting filed (event 2177). This session watches the pull
-  request and proves the chain after the deploy.").
+  request and proves the chain after the deploy."). After the proof, on
+  both #12 and the report pull request #13:
+  https://github.com/isleofdan/kanji-study/pull/12#issuecomment-6415398187
+  and https://github.com/isleofdan/kanji-study/pull/13#issuecomment-6415398573
+  ("FINISHED. Session kanji-crash-one. Chain: proven: card
+  crash-kanji-study-kanji-study-1 (https://spine-dan.fly.dev/wall?card=crash-kanji-study-kanji-study-1).
+  Card crash-reporting filed.").
+- **Card `crash-reporting`, refiled after the proof** by
+  `session:kanji-crash-one`: stands and next updated, door "first kanji
+  crash card on the Wall" added; event 2185, read back in the filing's
+  answer (17 doors, court dan).
 
 ## Asks for the origin chat
 
-1. **Merge the pull request** (Dan's typed line in the origin thread;
-   the thread merges, never this session). Recommended: yes. Merging
-   deploys the live app, and the deploy's crash check makes the first
-   Sentry issue.
+1. **Merge the report pull request #13** (notes only; Dan's typed line in
+   the origin thread; the thread merges, never this session). Recommended:
+   yes. Pull request #12 is already merged and live.
 2. **A Japanese font on the machine.** Recommended: yes, add
    `fonts-noto-cjk` to the agent-machine image through that repository's
    deploy. The image grows; the machine and volume prices do not change.
@@ -180,14 +206,13 @@ keeps a queue watch and sends a progress line every 10 minutes.
 
 ## What the next session needs
 
-- Merge status: NOT MERGED. The origin thread merges on Dan's typed line;
-  merging runs the Deploy workflow.
-- Proof checks outstanding, owned by this session (kanji-crash-one), which
-  is watching the pull request: the deploy's "Check a crash reaches
-  Sentry" line (500 expected), Sentry's `kanji-study` issues (one titled
-  with `crash-test`), and the Wall for a card whose id begins
-  `crash-kanji-study-`. If this session closes first, the origin thread
-  owns them and hands them to a session from the card note.
+- Merge status: MERGED (11:52:43Z, 80ed980) and live (deploy run
+  40318392027 green). The chain proof is done (above); nothing is
+  outstanding from this session.
+- The card `crash-kanji-study-kanji-study-1` is the deploy's deliberate
+  crash, not a bug. Every deploy adds one occurrence to the same Sentry
+  issue. Its court is claude-code; the origin thread decides whether to
+  park it.
 - The two follow-on sessions already decided on the card: the Hebrew
   reader and the Spine copy the kit's keep-list scrub.
 

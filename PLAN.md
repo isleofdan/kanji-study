@@ -142,3 +142,7 @@
   deploy's crash check prints 500, Sentry shows one `crash-test` issue, and
   the Wall shows a card whose id begins `crash-kanji-study-`. Report:
   `docs/reports/kanji-crash-one-report.md`.
+- **Chain proven (kanji-crash-one, after the merge).** #12 merged 11:52Z
+  (80ed980), Deploy run 40318392027 green with `crash-test: 500`; the
+  Spine filed Wall card `crash-kanji-study-kanji-study-1` from Sentry
+  issue 156256558. Every deploy adds one occurrence to that issue.
