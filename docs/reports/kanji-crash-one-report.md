@@ -176,7 +176,16 @@ keeps a queue watch and sends a progress line every 10 minutes.
   ("BLOCKED. Session kanji-crash-one. Chain: not proven: waiting for the
   merge, which only the origin thread gives, on Dan's typed line. Card
   crash-reporting filed (event 2177). This session watches the pull
-  request and proves the chain after the deploy.").
+  request and proves the chain after the deploy."). After the proof, on
+  both #12 and the report pull request #13:
+  https://github.com/isleofdan/kanji-study/pull/12#issuecomment-6415398187
+  and https://github.com/isleofdan/kanji-study/pull/13#issuecomment-6415398573
+  ("FINISHED. Session kanji-crash-one. Chain: proven: card
+  crash-kanji-study-kanji-study-1 (https://spine-dan.fly.dev/wall?card=crash-kanji-study-kanji-study-1).
+  Card crash-reporting filed.").
+- **Card `crash-reporting`, refiled after the proof** by
+  `session:kanji-crash-one`: stands and next updated, door "first kanji
+  crash card on the Wall" added (the event id is in the card's log).
 
 ## Asks for the origin chat
 
