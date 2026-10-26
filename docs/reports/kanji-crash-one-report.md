@@ -141,8 +141,8 @@ keeps a queue watch and sends a progress line every 10 minutes.
    Sentry issue.
 2. **A Japanese font on the machine.** Recommended: yes, add
    `fonts-noto-cjk` to the agent-machine image through that repository's
-   deploy. About 80 MB of image space, no monthly cost beyond the volume
-   space it uses. Until then, every kanji screenshot taken on the machine
+   deploy. The image grows; the machine and volume prices do not change.
+   Until then, every kanji screenshot taken on the machine
    is blank.
 3. **The OpenRig daemon starves.** Recommended: yes, a session on the
    agent-machine repository prunes `usage_samples` in
