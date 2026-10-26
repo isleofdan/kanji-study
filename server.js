@@ -1,6 +1,9 @@
 'use strict';
+// crash reporting first, so Sentry is set up before anything else loads (lib/crash.js)
+const crash = require('./lib/crash');
 // One plain Node server, made from isleofdan/starting-kit.
 //   /login (GET, POST), /logout, /app.css, /alive  — open
+//   /sentry.min.js, /crash.js                      — open (crash reporting, also on the sign-in page)
 //   everything else (/, /status, an app's own)     — behind the passphrase cookie
 // Fail closed: with APP_PASSWORD or COOKIE_SECRET unset, only the sign-in
 // page serves, and it says the server is not configured.
@@ -335,12 +338,21 @@ route('GET', /^\/status$/, (req, res) => {
   }));
 });
 
+// The check that crash reporting works: an unexpected error, reported by the
+// catch at the bottom like any other, answered 500. The deploy's "Check a
+// crash reaches Sentry" step calls it; Sentry files its Wall card through
+// the Spine.
+route('POST', /^\/crash-test$/, () => {
+  throw new Error('crash-test: kanji study reports crashes');
+});
+
 // --- the server -------------------------------------------------------------
 
 // The four files that make the site installable are open too, as the Hebrew
 // reader serves them: Chrome fetches the manifest and the icons without the
-// cookie, and none of them holds anything of Dan's.
-const OPEN_FILES = new Set(['/app.css', '/manifest.webmanifest', '/sw.js', '/install.js', '/icon-192.png', '/icon-512.png']);
+// cookie, and none of them holds anything of Dan's. So is crash reporting's
+// pair, which the sign-in page loads too.
+const OPEN_FILES = new Set(['/app.css', '/manifest.webmanifest', '/sw.js', '/install.js', '/icon-192.png', '/icon-512.png', '/sentry.min.js', '/crash.js']);
 
 async function handle(req, res) {
   const url = new URL(req.url, 'http://x');
@@ -372,7 +384,10 @@ async function handle(req, res) {
 const server = http.createServer((req, res) => {
   handle(req, res).catch((e) => {
     const status = e.status || 500;
-    if (status >= 500) console.error(e.stack || e.message);
+    if (status >= 500) {
+      console.error(e.stack || e.message);
+      crash.captureException(e);
+    }
     if (!res.headersSent) sendJson(res, status, { error: status >= 500 ? 'something went wrong on the server' : e.message });
     else res.end();
   });
@@ -384,5 +399,15 @@ server.listen(PORT, () => {
   // first visit to Explore.
   setImmediate(() => explore.themes());
 });
+
+// On stop (Fly sends SIGINT, then kills after 5 s): send what was captured,
+// then close. A connection still open after 2 s more does not hold it up.
+for (const signal of ['SIGTERM', 'SIGINT']) {
+  process.once(signal, async () => {
+    await crash.flush(2000);
+    server.close(() => process.exit(0));
+    setTimeout(() => process.exit(0), 2000).unref();
+  });
+}
 
 module.exports = server;

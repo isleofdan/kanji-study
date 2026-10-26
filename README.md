@@ -76,6 +76,51 @@ pressed, and reading a question on Explore, when **Explore** is pressed.
 It never supplies a fact; the app keeps only the characters and groups it
 names that are in the dataset, and labels them from the data.
 
+## Crash reports
+
+The app reports its unexpected errors to Sentry: a server error that
+answers 500, and an error thrown in a page. Only the error and where in
+the code it happened leave the app: the error's type and message, how it
+was caught, and its stack frames with file, module, function, line,
+column and whether the frame is the app's own. The same rule runs on the
+server and in the page (`public/crash.js`, which `lib/crash.js` also
+uses), and it keeps a short list rather than removing a few things: an
+event keeps its id, time, level, platform, environment, the SDK's name
+and version, and those exceptions; everything else is dropped. So nothing
+is sent of the request (address, query, headers, cookie, body), the user
+or the IP address, the transaction name, extra data, tags, the server's
+name, the machine, operating system, device, locale or time zone, the
+installed modules, the source lines around each frame, local variables,
+the breadcrumbs that carry addresses, logs or page text (http, fetch, xhr,
+console, navigation, ui.*), or the query and fragment of any address in a
+stack frame. That matters here: addresses and pages carry your catches
+(`/share?text=…`, notes, drawings, photos), and none of them travels.
+Sentry 11 gathers most of that by default whatever `sendDefaultPii` says,
+so `public/crash.js` also turns off its `dataCollection` options and the
+integrations that gather source lines, variables, contexts and modules.
+Two limits: an error's own message is sent as written, so code should not
+put what you typed into one; and a page's report travels as an ordinary
+request from your browser, which tells Sentry the app's address and the
+browser's name, as any request to another site does.
+
+Reporting is on only when the environment variable `SENTRY_DSN` is set
+(`fly.toml`, `[env]`); the server then writes it into every page as
+`<meta name="sentry-dsn">`. The DSN is public by Sentry's design: it only
+lets anyone send new events
+(https://docs.sentry.io/concepts/key-terms/dsn-explainer/). `npm test`
+and a local run leave it unset and send nothing. `POST /crash-test`, behind
+the passphrase cookie like every other route, throws
+`Error('crash-test: kanji study reports crashes')`, which the server
+reports like any unexpected error and answers 500; signed out it sends the
+browser to the sign-in page (303), or answers 401 to a request for JSON.
+The Deploy workflow signs in and calls it after every deploy ("Check a
+crash reaches Sentry", which only warns). Each new Sentry issue becomes a
+card on Dan's Wall in the Spine (Sentry's alert calls the Spine). The
+browser part is Sentry's own SDK built into one file served from the app
+(`public/sentry.min.js`, made by `npm run build` and committed), so a page
+loads scripts only from its own site. `/sentry.min.js` and `/crash.js` are
+served without the cookie, because the sign-in page loads them too.
+
 ## Where the kanji facts come from
 
 This app uses the KANJIDIC2 dictionary file. This file is the property of
@@ -95,7 +140,8 @@ it); only that file is kept here. Run
 
 Made from `isleofdan/starting-kit`: one plain Node server
 (`server.js`), plain HTML, CSS and browser scripts in `public/`, no build
-step. Dan's records (catches, saved characters, which character pages
+step (the one built file, Sentry's browser bundle `public/sentry.min.js`, is
+committed; see Crash reports). Dan's records (catches, saved characters, which character pages
 were opened from which group, theme or exploration, and his explorations)
 are one SQLite file under `DATA_DIR`, with caught pictures beside it
 (`lib/db.js`). The kanji facts and groups come from `lib/kanji.js`; the

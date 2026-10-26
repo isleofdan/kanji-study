@@ -162,3 +162,25 @@ jobs:
             exit 1
           fi
           echo "Live at $base"
+
+      # The crash chain end to end: signed in the same way, POST /crash-test
+      # throws, the server reports it to Sentry (when fly.toml carries a DSN)
+      # and answers 500; Sentry files the Wall card through the Spine. It only
+      # warns: a missing crash report never fails a deploy that is live.
+      - name: Check a crash reaches Sentry
+        env:
+          APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
+        run: |
+          base="https://$APP.fly.dev"
+          jar=$(mktemp)
+          trap 'rm -f "$jar"' EXIT
+          # a connection that fails or times out is 000 here, never the step's exit code
+          login=$(curl -s -o /dev/null -w "%{http_code}" -c "$jar" --max-time 30 \
+            --data-urlencode "passphrase=$APP_PASSWORD" --data-urlencode "next=/" "$base/login") || login="${login:-000}"
+          echo "sign-in form: HTTP $login"
+          code=000
+          if [ "$login" = "303" ]; then
+            code=$(curl -s -o /dev/null -w "%{http_code}" -b "$jar" -X POST -H 'accept: application/json' --max-time 30 "$base/crash-test") || code="${code:-000}"
+          fi
+          echo "crash-test: $code"
+          if [ "$code" != "500" ]; then echo "::warning::POST /crash-test answered $code (sign-in $login), not 500; the crash may not have reached Sentry."; fi
