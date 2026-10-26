@@ -24,8 +24,9 @@ keeps a queue watch and sends a progress line every 10 minutes.
     SIGTERM/SIGINT the server flushes for 2 s, then closes.
   - Pages: `public/crash.js` (the kit's shared scrub and settings; reads
     `<meta name="sentry-dsn">`, does nothing without it) and the committed
-    `public/sentry.min.js` (built by `npm run build`, byte-identical to the
-    kit's). `lib/http.js` writes the meta tag after `<head>` when the DSN is
+    `public/sentry.min.js` (built by `npm run build`; `cmp` against the
+    kit's at starting-kit `main` 4ec0844 reports no difference, sha256
+    `bc163bb7dc36fea3…` for both). `lib/http.js` writes the meta tag after `<head>` when the DSN is
     set. All 11 pages load `/sentry.min.js` then `/crash.js` before their own
     scripts, the sign-in page included; both files are served without the
     cookie.
@@ -134,7 +135,28 @@ keeps a queue watch and sends a progress line every 10 minutes.
   sent to the checker was shortened (missing sections, heading) and the
   next-session item deferred proof work. Changed: the first line, the
   next-session item, and the full report sent.
-- Result check 2: on the card and in the pull request comment.
+- Result check 2: job `20261026-113013-963a5a`, FINDINGS (3): the
+  bundle claim had no quoted comparison; the card filing and the pull
+  request comment were not recorded. Changed: the `cmp` result quoted
+  above; the section "Close-out records" added.
+- Result check 3: on the card and in the pull request comment.
+
+## Close-out records
+
+- **Card `crash-reporting`, filed and read back.** `file_thread` by
+  `session:kanji-crash-one` appended event 2177, kind `handed` (from
+  claude-code to dan), its note beginning "What stands — kanji-crash-one"
+  with the sections What stands, What the brief got wrong and Asks for the
+  origin chat. Read back with `get_thread`: event 2177 is there with that
+  note; the card is live, court dan; it has 14 doors, the 12 it had plus
+  "field report (kanji-crash-one)" and "pull request (kanji-crash-one)".
+- **Pull request comments.** Step f's comment, posted:
+  https://github.com/isleofdan/kanji-study/pull/12#issuecomment-6414872848
+  ("BLOCKED. Pull request ready, waiting for the merge. Tests: 65 → 76, 76
+  of 76 pass. dev-check: PASS: 2259cd5 restores screenshots exactly to
+  main; 76 tests pass."). The close-out comment (step 3) is posted once
+  the result check passes; it reads BLOCKED, because only the merge can
+  let the chain proof run.
 
 ## Asks for the origin chat
 
