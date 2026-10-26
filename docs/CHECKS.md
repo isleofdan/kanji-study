@@ -34,10 +34,12 @@ machine, Node 24.21.0): `npm test` on main before the change 65 tests, 65
 passed (the 66 below was counted before a later kanji-three change; main
 holds 57 plain tests and 8 from the per-page loop in
 `test/install.test.js`); after it 76 tests, 76 passed (11 in
-`test/crash.test.js`); `npm run check` ended
-`check: all passed: syntax, tests, screenshots` (syntax 1.38 s, tests
-8.44 s, screenshots 58.62 s); `npm run screenshots` again all passed, 17
-screens × 2 sizes × 2 schemes, 16 calls to the stand-in model.
+`test/crash.test.js`). The screenshot step of `npm run check` was not
+used for this change: this machine has no Japanese font
+(`fc-list :lang=ja` prints nothing), so every kanji in its screenshots
+renders blank, although the step's own checks pass. The change moves no
+page layout, so the screenshots in `docs/reports/screenshots/` stay as
+they are on main (kanji-three's run).
 
 Earlier counts (kanji-three, 22 Oct 2026, the rented Linux machine,
 Node 24.21.0): `npm test` 66 tests, 66 passed; `npm run screenshots`
