@@ -154,9 +154,12 @@ keeps a queue watch and sends a progress line every 10 minutes.
   https://github.com/isleofdan/kanji-study/pull/12#issuecomment-6414872848
   ("BLOCKED. Pull request ready, waiting for the merge. Tests: 65 → 76, 76
   of 76 pass. dev-check: PASS: 2259cd5 restores screenshots exactly to
-  main; 76 tests pass."). The close-out comment (step 3) is posted once
-  the result check passes; it reads BLOCKED, because only the merge can
-  let the chain proof run.
+  main; 76 tests pass."). Close-out comment (step 3), posted:
+  https://github.com/isleofdan/kanji-study/pull/12#issuecomment-6414965395
+  ("BLOCKED. Session kanji-crash-one. Chain: not proven: waiting for the
+  merge, which only the origin thread gives, on Dan's typed line. Card
+  crash-reporting filed (event 2177). This session watches the pull
+  request and proves the chain after the deploy.").
 
 ## Asks for the origin chat
 
