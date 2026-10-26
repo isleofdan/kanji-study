@@ -124,3 +124,21 @@
   next revision; candidates on the card: Ask on the top-tier model if
   picks stay hit-and-miss; "a next character with a reason". Report:
   `docs/reports/kanji-three-report.md`.
+
+## Close-out — kanji-crash-one (26 Oct 2026)
+
+- **What stands.** The app reports its crashes to the Sentry project
+  `kanji-study` with the starting kit's keep-list scrub (the error type,
+  message, mechanism and frames only; nothing of addresses, page text,
+  catches, notes, drawings or photos): `lib/crash.js`, `public/crash.js`,
+  the committed `public/sentry.min.js` loaded by all 11 pages, the DSN in
+  `fly.toml` (public by Sentry's design), `POST /crash-test` behind the
+  cookie, and the deploy step "Check a crash reaches Sentry". Built by the
+  OpenRig team in two rounds, both passed by dev-check; 65 → 76 tests.
+- **Decided.** The kit is the model for crash reporting (not the Hebrew
+  reader). Screenshots are not re-taken on the rented machine until it has
+  a Japanese font: without one every kanji renders blank.
+- **What the next session needs.** After the merge and deploy: the
+  deploy's crash check prints 500, Sentry shows one `crash-test` issue, and
+  the Wall shows a card whose id begins `crash-kanji-study-`. Report:
+  `docs/reports/kanji-crash-one-report.md`.
