@@ -1,4 +1,4 @@
-# kanji-crash-one — field report
+# FIELD REPORT — kanji-crash-one — 2026-10-26
 
 Nothing has changed on Dan's screen yet: the crash card for the kanji app
 appears on the Wall only after this pull request is merged and deployed,
@@ -130,8 +130,11 @@ keeps a queue watch and sends a progress line every 10 minutes.
   this session).
 - Team check round 1: dev-check, `qitem-20261026111524-b7202faf`, PASS.
 - Team check round 2: dev-check, `qitem-20261026112122-c9c97f93`, PASS.
-- Result check: recorded on the card and in the pull request comment
-  once it has run.
+- Result check 1: job `20261026-112806-a6be33`, FINDINGS (6): the report
+  sent to the checker was shortened (missing sections, heading) and the
+  next-session item deferred proof work. Changed: the first line, the
+  next-session item, and the full report sent.
+- Result check 2: on the card and in the pull request comment.
 
 ## Asks for the origin chat
 
@@ -152,10 +155,14 @@ keeps a queue watch and sends a progress line every 10 minutes.
 
 ## What the next session needs
 
-- If the chain is not proven in this session: after the merge and a green
-  deploy, read the deploy's "Check a crash reaches Sentry" line (500
-  expected), Sentry's `kanji-study` issues (one titled with `crash-test`),
-  and the Wall for a card whose id begins `crash-kanji-study-`.
+- Merge status: NOT MERGED. The origin thread merges on Dan's typed line;
+  merging runs the Deploy workflow.
+- Proof checks outstanding, owned by this session (kanji-crash-one), which
+  is watching the pull request: the deploy's "Check a crash reaches
+  Sentry" line (500 expected), Sentry's `kanji-study` issues (one titled
+  with `crash-test`), and the Wall for a card whose id begins
+  `crash-kanji-study-`. If this session closes first, the origin thread
+  owns them and hands them to a session from the card note.
 - The two follow-on sessions already decided on the card: the Hebrew
   reader and the Spine copy the kit's keep-list scrub.
 
