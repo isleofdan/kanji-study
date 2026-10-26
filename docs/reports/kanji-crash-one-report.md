@@ -185,14 +185,14 @@ keeps a queue watch and sends a progress line every 10 minutes.
   Card crash-reporting filed.").
 - **Card `crash-reporting`, refiled after the proof** by
   `session:kanji-crash-one`: stands and next updated, door "first kanji
-  crash card on the Wall" added (the event id is in the card's log).
+  crash card on the Wall" added; event 2185, read back in the filing's
+  answer (17 doors, court dan).
 
 ## Asks for the origin chat
 
-1. **Merge the pull request** (Dan's typed line in the origin thread;
-   the thread merges, never this session). Recommended: yes. Merging
-   deploys the live app, and the deploy's crash check makes the first
-   Sentry issue.
+1. **Merge the report pull request #13** (notes only; Dan's typed line in
+   the origin thread; the thread merges, never this session). Recommended:
+   yes. Pull request #12 is already merged and live.
 2. **A Japanese font on the machine.** Recommended: yes, add
    `fonts-noto-cjk` to the agent-machine image through that repository's
    deploy. The image grows; the machine and volume prices do not change.
