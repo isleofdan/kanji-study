@@ -1,0 +1,109 @@
+name: One approved server crash test
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_workflow_sha:
+        description: 'Full reviewed main SHA containing this workflow (not deployed app revision)'
+        required: true
+        type: string
+
+permissions: {}
+
+# Shares the existing deploy lock; dispatch only when no deploy is active/pending.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  test-once:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'isleofdan/kanji-study' &&
+      github.ref == 'refs/heads/main' &&
+      github.run_attempt == 1 && inputs.expected_workflow_sha == github.sha
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: One authenticated POST; HTTP receipt only
+        shell: bash
+        env:
+          TEST_CREDENTIAL: ${{ secrets.APP_PASSWORD }}
+          EXPECTED_WORKFLOW_SHA: ${{ inputs.expected_workflow_sha }}
+        run: |
+          set +x
+          set -euo pipefail
+          node <<'NODE'
+          // Fixed origin/route; no arbitrary URL, ref, body or command inputs.
+          const https = require('node:https');
+          const fs = require('node:fs');
+          const config = {"repo":"kanji-study","host":"kanji-study-dan.fly.dev","route":"/crash-test","secret":"APP_PASSWORD","group":"deploy","mode":"form","cookie":"kanji_study_auth","loginStatus":303};
+          const env = process.env;
+          function report(data) {
+            const line = JSON.stringify(data);
+            console.log(line);
+            fs.appendFileSync(env.GITHUB_STEP_SUMMARY, line + '\n');
+          }
+          function stop(reason) { report({result:reason, sentryVerified:false}); process.exitCode = 1; }
+          async function post(stage, route, headers, body = '') {
+            const started = new Date().toISOString();
+            report({stage, requestStartedUtc:started}); // Write before sending; cancellation may leave only this receipt.
+            return new Promise(resolve => {
+              let finished = false, status = null, req, timer;
+              const done = (ok, cookies = []) => {
+                if (finished) return;
+                finished = true; clearTimeout(timer);
+                report({stage, requestEndedUtc:new Date().toISOString(), httpStatus:status, transportComplete:ok});
+                resolve({ok, status, cookies});
+              };
+              try {
+                req = https.request({hostname:config.host, port:443, path:route, method:'POST',
+                  agent:false, headers:{...headers, 'Content-Length':Buffer.byteLength(body)}}, res => {
+                  status = res.statusCode;
+                  let bytes = 0;
+                  res.on('data', chunk => { bytes += chunk.length; if (bytes > 65536) { done(false); res.destroy(); req.destroy(); } });
+                  res.on('end', () => done(true, res.headers['set-cookie'] || []));
+                  res.on('error', () => done(false));
+                  res.on('aborted', () => done(false));
+                });
+                req.on('error', () => done(false));
+                timer = setTimeout(() => { done(false); req.destroy(); }, 30000);
+                req.end(body);
+              } catch { done(false); if (req) req.destroy(); }
+            });
+          }
+          async function main() {
+            if (env.GITHUB_EVENT_NAME !== 'workflow_dispatch' || env.GITHUB_REPOSITORY !== 'isleofdan/' + config.repo ||
+                env.GITHUB_REF !== 'refs/heads/main' || env.GITHUB_RUN_ATTEMPT !== '1' ||
+                !/^[0-9a-f]{40}$/.test(env.GITHUB_SHA || '') || env.EXPECTED_WORKFLOW_SHA !== env.GITHUB_SHA ||
+                !/^[0-9]+$/.test(env.GITHUB_RUN_ID || '')) return stop('GUARD_REFUSED_NO_REQUEST');
+            report({project:config.repo, workflowCommit:env.GITHUB_SHA, runId:env.GITHUB_RUN_ID,
+              deployedCommit:'UNVERIFIED', release:'UNVERIFIED', sentryVerified:false});
+            const credential = env.TEST_CREDENTIAL;
+            delete env.TEST_CREDENTIAL;
+            if (!credential) return stop('MISSING_EXISTING_SECRET_NO_REQUEST');
+            let headers = {Accept:'application/json'};
+            if (config.mode === 'bearer') {
+              if (/[\r\n]/.test(credential)) return stop('INVALID_CREDENTIAL_NO_REQUEST');
+              headers.Authorization = 'Bearer ' + credential;
+            } else {
+              const body = config.mode === 'json' ? JSON.stringify({passphrase:credential}) :
+                new URLSearchParams({passphrase:credential, next:'/'}).toString();
+              const loginHeaders = {'Content-Type':config.mode === 'json' ? 'application/json' : 'application/x-www-form-urlencoded'};
+              if (config.mode === 'json') loginHeaders.Accept = 'application/json';
+              const login = await post('login', '/login', loginHeaders, body);
+              if (!login.ok || login.status !== config.loginStatus) return stop('LOGIN_NOT_CONFIRMED_NO_CRASH_REQUEST');
+              const matches = login.cookies.filter(x => typeof x === 'string' && x.startsWith(config.cookie + '='));
+              if (matches.length !== 1) return stop('SESSION_NOT_CONFIRMED_NO_CRASH_REQUEST');
+              const cookie = matches[0].split(';')[0];
+              if (!cookie.slice(config.cookie.length + 1) || /[\r\n]/.test(cookie)) return stop('SESSION_NOT_CONFIRMED_NO_CRASH_REQUEST');
+              headers.Cookie = cookie; // Newly issued login session stays in memory; never logged or saved.
+            }
+            const result = await post('crash', config.route, headers);
+            if (!result.ok) return stop('CRASH_OUTCOME_UNCERTAIN_DO_NOT_RETRY');
+            if (result.status !== 500) return stop('UNEXPECTED_HTTP_STATUS_DO_NOT_RETRY');
+            report({result:'EXPECTED_HTTP_500_ONLY', sentryVerified:false,
+              next:'Inspect exact post-settings Sentry event; do not rerun this job.'});
+          }
+          main().catch(() => { stop('UNEXPECTED_FAILURE_DO_NOT_RETRY'); });
+          NODE
