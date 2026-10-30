@@ -272,7 +272,22 @@ test('with a DSN, pages carry it, and a crash reaches Sentry with its message an
   for (const s of ['pre_context', 'context_line', 'post_context', '"vars"', '"os"', '"device"', '"culture"', 'cloud_resource']) assert.ok(!text.includes(s), `sent: ${s}`);
   for (const s of ['private-word', 'private-body', '?q=', '_auth', 'kanji-crash-test-', cookie.split('=')[1], `${app.name} on`]) assert.ok(!text.includes(s), `sent: ${s}`);
   if (os.hostname().length >= 6) assert.ok(!text.includes(os.hostname()), 'the machine\'s name was sent');
-  assert.deepEqual(envelopes.filter((e) => !e.includes('"type":"event"')).map((e) => e.split('\n')[1]), [], 'nothing else is sent');
+  // Only explicitly permitted error-loss reports may accompany scrubbed errors.
+  for (const raw of envelopes.filter(e => !e.includes('"type":"event"'))) {
+    const [header, itemHeader, payload] = raw.trim().split('\n').map(JSON.parse);
+    assert.deepEqual(header, {});
+    assert.deepEqual(itemHeader, {type:'client_report'});
+    assert.deepEqual(Object.keys(payload).sort(), ['discarded_events','timestamp']);
+    assert.ok(Number.isSafeInteger(payload.timestamp) && payload.timestamp % 60 === 0);
+    assert.ok(payload.timestamp >= Date.now()/1000 - 360 && payload.timestamp <= Date.now()/1000 + 60);
+    assert.ok(payload.discarded_events.length > 0 && payload.discarded_events.length <= 13);
+    for (const loss of payload.discarded_events) {
+      assert.deepEqual(Object.keys(loss).sort(), ['category','quantity','reason']);
+      assert.equal(loss.category, 'error');
+      assert.ok(['before_send','callback_error','event_processor','network_error','queue_overflow','ratelimit_backoff','sample_rate','send_error','internal_sdk_error','buffer_overflow','ignored','invalid','no_parent_span'].includes(loss.reason));
+      assert.ok(Number.isSafeInteger(loss.quantity) && loss.quantity >= 1 && loss.quantity <= 1000000);
+    }
+  }
   assert.match(kid.log, /Error: crash-test: kanji study reports crashes/, 'the catch still logs the error');
 });
 
