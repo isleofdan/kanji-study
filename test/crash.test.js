@@ -203,7 +203,11 @@ test('with no DSN: the crash files answer signed out, pages carry no DSN, and PO
   const cookie = await signIn(base);
   const r = await fetch(`${base}/crash-test`, { method: 'POST', headers: { cookie, accept: 'application/json' } });
   assert.equal(r.status, 500);
-  assert.deepEqual(await r.json(), { error: 'something went wrong on the server' });
+  const receipt = (await r.json()).test;
+  assert.equal(receipt.outcome, 'disabled');
+  assert.equal(receipt.captureId, null);
+  assert.equal(receipt.sentryVerified, false);
+  assert.match(receipt.correlationId, /^[0-9a-f-]{36}$/);
   assert.equal((await fetch(`${base}/crash-test`, { headers: { cookie } })).status, 404, 'only POST');
   await wait(100);
   assert.match(kid.log, /Error: crash-test: kanji study reports crashes/, 'the catch still logs the error');
@@ -239,19 +243,51 @@ test('with a DSN, pages carry it, and a crash reaches Sentry with its message an
   const item = JSON.parse(events[0].split('\n')[2]);
   const ex = item.exception.values[0];
   assert.equal(ex.type, 'Error');
-  assert.equal(ex.value, 'crash-test: kanji study reports crashes');
+  const receipt = (await r.json()).test;
+  assert.equal(receipt.outcome, 'sdk_flushed');
+  assert.equal(receipt.sentryVerified, false);
+  assert.equal(item.event_id, receipt.captureId);
+  assert.equal(ex.value, 'crash-test: kanji study reports crashes [' + receipt.correlationId + ']');
   assert.ok(ex.stacktrace.frames.some((f) => /server\.js$/.test(f.filename || '')), 'a frame in server.js');
   assert.equal(item.environment, 'production');
+  assert.deepEqual(item.fingerprint, ['kanji-study:server-crash-test:v1']);
   for (const k of ['request', 'user', 'transaction', 'extra', 'server_name', 'contexts', 'modules', 'tags', 'threads']) assert.ok(!(k in item), k);
-  for (const k of Object.keys(item)) assert.ok(['event_id', 'timestamp', 'level', 'platform', 'environment', 'release', 'sdk', 'exception', 'breadcrumbs'].includes(k), `sent: ${k}`);
+  for (const k of Object.keys(item)) assert.ok(['event_id', 'timestamp', 'level', 'platform', 'environment', 'release', 'sdk', 'exception', 'breadcrumbs', 'fingerprint'].includes(k), `sent: ${k}`);
   for (const f of ex.stacktrace.frames) for (const k of Object.keys(f)) assert.ok(['filename', 'abs_path', 'module', 'function', 'lineno', 'colno', 'in_app'].includes(k), `a frame sent ${k}`);
+  // Repeat with real SDK and loopback transport: the second event must survive Dedupe.
+  const again = await fetch(base + '/crash-test', { method: 'POST', headers: {cookie, accept:'application/json'} });
+  assert.equal(again.status, 500);
+  const second = (await again.json()).test;
+  assert.equal(second.outcome, 'sdk_flushed');
+  assert.notEqual(second.correlationId, receipt.correlationId);
+  assert.notEqual(second.captureId, receipt.captureId);
+  const repeated = envelopes.filter(e => e.includes('"type":"event"')).map(e => JSON.parse(e.split('\n')[2]));
+  assert.equal(repeated.length, 2);
+  assert.equal(repeated[1].event_id, second.captureId);
+  assert.deepEqual(repeated[1].fingerprint, ['kanji-study:server-crash-test:v1']);
+  assert.equal(repeated[1].exception.values[0].value, 'crash-test: kanji study reports crashes [' + second.correlationId + ']');
   const text = envelopes.join('\n');
   // a line of server.js just above the throw: source context would carry it
   assert.ok(!text.includes('crash reaches Sentry'), 'source lines were sent');
   for (const s of ['pre_context', 'context_line', 'post_context', '"vars"', '"os"', '"device"', '"culture"', 'cloud_resource']) assert.ok(!text.includes(s), `sent: ${s}`);
   for (const s of ['private-word', 'private-body', '?q=', '_auth', 'kanji-crash-test-', cookie.split('=')[1], `${app.name} on`]) assert.ok(!text.includes(s), `sent: ${s}`);
   if (os.hostname().length >= 6) assert.ok(!text.includes(os.hostname()), 'the machine\'s name was sent');
-  assert.deepEqual(envelopes.filter((e) => !e.includes('"type":"event"')).map((e) => e.split('\n')[1]), [], 'nothing else is sent');
+  // Only explicitly permitted error-loss reports may accompany scrubbed errors.
+  for (const raw of envelopes.filter(e => !e.includes('"type":"event"'))) {
+    const [header, itemHeader, payload] = raw.trim().split('\n').map(JSON.parse);
+    assert.deepEqual(header, {});
+    assert.deepEqual(itemHeader, {type:'client_report'});
+    assert.deepEqual(Object.keys(payload).sort(), ['discarded_events','timestamp']);
+    assert.ok(Number.isSafeInteger(payload.timestamp) && payload.timestamp % 60 === 0);
+    assert.ok(payload.timestamp >= Date.now()/1000 - 360 && payload.timestamp <= Date.now()/1000 + 60);
+    assert.ok(payload.discarded_events.length > 0 && payload.discarded_events.length <= 13);
+    for (const loss of payload.discarded_events) {
+      assert.deepEqual(Object.keys(loss).sort(), ['category','quantity','reason']);
+      assert.equal(loss.category, 'error');
+      assert.ok(['before_send','callback_error','event_processor','network_error','queue_overflow','ratelimit_backoff','sample_rate','send_error','internal_sdk_error','buffer_overflow','ignored','invalid','no_parent_span'].includes(loss.reason));
+      assert.ok(Number.isSafeInteger(loss.quantity) && loss.quantity >= 1 && loss.quantity <= 1000000);
+    }
+  }
   assert.match(kid.log, /Error: crash-test: kanji study reports crashes/, 'the catch still logs the error');
 });
 
