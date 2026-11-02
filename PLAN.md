@@ -142,3 +142,11 @@
   deploy's crash check prints 500, Sentry shows one `crash-test` issue, and
   the Wall shows a card whose id begins `crash-kanji-study-`. Report:
   `docs/reports/kanji-crash-one-report.md`.
+
+
+## Draft continuation: bounded server delivery diagnostics (30 Oct 2026)
+
+- Draft PR15 is not merged or deployed. The first real SDK regression confirmed two unique synthetic events with one fixed fingerprint, but CI failed because extra client-report/session envelopes violated the historical event-only assertion.
+- Approved policy for this draft: narrowly validated aggregate error-loss diagnostics may accompany scrubbed errors; session/activity tracking remains excluded. The server guard enforces this at the transport boundary, while request/process session collectors are disabled. Browser policy unchanged.
+- Test acceptance is explicit field validation, not removal of the privacy assertion. Unknown/malformed diagnostic data cannot pass. Full current-head CI must pass before any later merge decision; no live test is authorized by this draft work.
+- Field report: docs/reports/kanji-delivery-diagnostics-report.md. Any future deployment still has its existing provisioning/credential-staging and built-in crash-test effects, requiring separate approval.

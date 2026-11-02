@@ -338,12 +338,10 @@ route('GET', /^\/status$/, (req, res) => {
   }));
 });
 
-// The check that crash reporting works: an unexpected error, reported by the
-// catch at the bottom like any other, answered 500. The deploy's "Check a
-// crash reaches Sentry" step calls it; Sentry files its Wall card through
-// the Spine.
-route('POST', /^\/crash-test$/, () => {
-  throw new Error('crash-test: kanji study reports crashes');
+// An authenticated deliberate test with a server-generated correlation ID.
+// HTTP 500 and SDK flush evidence do not prove storage in Sentry.
+route('POST', /^\/crash-test$/, async (req, res) => {
+  return sendJson(res, 500, { error: 'deliberate crash test', test: await crash.captureTest() });
 });
 
 // --- the server -------------------------------------------------------------

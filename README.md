@@ -79,14 +79,14 @@ names that are in the dataset, and labels them from the data.
 ## Crash reports
 
 The app reports its unexpected errors to Sentry: a server error that
-answers 500, and an error thrown in a page. Only the error and where in
+answers 500, and an error thrown in a page. Within each error event, only the error and where in
 the code it happened leave the app: the error's type and message, how it
 was caught, and its stack frames with file, module, function, line,
 column and whether the frame is the app's own. The same rule runs on the
 server and in the page (`public/crash.js`, which `lib/crash.js` also
 uses), and it keeps a short list rather than removing a few things: an
 event keeps its id, time, level, platform, environment, the SDK's name
-and version, and those exceptions; everything else is dropped. So nothing
+and version, and those exceptions; other event fields are dropped. So nothing
 is sent of the request (address, query, headers, cookie, body), the user
 or the IP address, the transaction name, extra data, tags, the server's
 name, the machine, operating system, device, locale or time zone, the
@@ -109,9 +109,10 @@ Reporting is on only when the environment variable `SENTRY_DSN` is set
 lets anyone send new events
 (https://docs.sentry.io/concepts/key-terms/dsn-explainer/). `npm test`
 and a local run leave it unset and send nothing. `POST /crash-test`, behind
-the passphrase cookie like every other route, throws
-`Error('crash-test: kanji study reports crashes')`, which the server
-reports like any unexpected error and answers 500; signed out it sends the
+the passphrase cookie like every other route, creates a fixed synthetic error message with a server-generated correlation ID,
+reports it and answers 500 with bounded SDK capture/flush evidence;
+that receipt does not prove storage in Sentry. Repeated synthetic events use
+one fixed server grouping key while ordinary errors keep normal deduplication; signed out it sends the
 browser to the sign-in page (303), or answers 401 to a request for JSON.
 The Deploy workflow signs in and calls it after every deploy ("Check a
 crash reaches Sentry", which only warns). Each new Sentry issue becomes a
@@ -120,6 +121,40 @@ browser part is Sentry's own SDK built into one file served from the app
 (`public/sentry.min.js`, made by `npm run build` and committed), so a page
 loads scripts only from its own site. `/sentry.min.js` and `/crash.js` are
 served without the cookie, because the sign-in page loads them too.
+
+### Server delivery diagnostics (approved narrow exception)
+
+In addition to scrubbed error events, the server may send aggregate **error-loss
+diagnostics**, so missing reports can be investigated. This is an explicit
+exception to the former event-only envelope policy, not permission for session
+or activity tracking. The browser policy is unchanged.
+
+The server transport boundary reconstructs client reports with an empty
+envelope header, an item header containing only `type: client_report`, and
+only a minute-rounded timestamp plus `discarded_events` entries. Each entry
+contains a fixed known SDK loss reason, `category: error`, and an integer
+quantity from 1 to 1,000,000. The input timestamp must be finite, between
+2000 and 2100, no more than five minutes old or one minute ahead. Reports
+have at most 128 input entries and at most 13 distinct retained reasons.
+Invalid error entries, duplicate error reasons, malformed or mixed envelopes
+are rejected. Other categories are excluded; unknown extra fields are stripped.
+No event/user identifiers, messages, request data, DSN, release or SDK metadata
+are retained in these diagnostic reports. Error envelopes retain their existing
+scrub and necessary SDK envelope handling.
+
+Known reasons are `before_send`, `callback_error`, `event_processor`,
+`network_error`, `queue_overflow`, `ratelimit_backoff`, `sample_rate`,
+`send_error`, `internal_sdk_error`, `buffer_overflow`, `ignored`,
+`invalid` and `no_parent_span`. These aggregate loss counts and approximate
+times can reveal operational behavior; they are deliberately permitted, not
+anonymous by guarantee or proof that any particular error was stored.
+
+HTTP request sessions and process sessions are disabled. Session, activity,
+transaction, attachment, log, metric and unknown envelope types cannot pass
+this boundary. A report rejected by the boundary is not itself reported,
+avoiding a report loop; flush success therefore still cannot prove storage.
+The guard delegates HTTPS, SDK buffering and transport flushing to Sentry's
+existing Node transport. No endpoint, credential or permission is added.
 
 ## Where the kanji facts come from
 
@@ -164,3 +199,4 @@ which saves the screens at both sizes, light and dark, into
 `docs/reports/`). They also run by themselves after every edit an agent
 makes and on every push and pull request: `docs/CHECKS.md`. What an agent
 may and may not touch: `CLAUDE.md`.
+
