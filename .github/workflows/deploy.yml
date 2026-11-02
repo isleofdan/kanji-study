@@ -1,19 +1,17 @@
-# Deploys the app to Fly. Run by hand from the Actions tab ("Deploy", then
-# "Run workflow"). Creates the app the first time, copies the passphrase
-# from the repository secret every time, makes COOKIE_SECRET once and keeps
-# it on Fly, deploys, then proves the result: the alive line answers, and
-# signing in through the sign-in form, as a person would, reaches the
-# Catch page.
-#
-# Repository secrets it needs: FLY_API_TOKEN (a Fly org token for Dan's
-# personal org, which can create apps; a deploy token cannot),
-# APP_PASSWORD and OPENROUTER_API_KEY (the model that reads a drawing or a
-# photo). The Fly app is <name in app.json>-dan; its records live on the
-# volume kanji_data, mounted at /data.
+# LOCAL PROPOSAL: not release-ready until deploy-target.json is independently verified.
+# Existing app only. Password restaging and remote build compute require release approval.
 name: Deploy
 
 on:
   workflow_dispatch:
+    inputs:
+      expected_workflow_sha:
+        description: Full reviewed main commit containing this workflow
+        required: true
+        type: string
+
+permissions:
+  contents: read
 
 concurrency:
   group: deploy
@@ -24,9 +22,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
+      EXPECTED_WORKFLOW_SHA: ${{ inputs.expected_workflow_sha }}
       FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
     steps:
       - uses: actions/checkout@v5
+
+      - name: Bind reviewed invocation before any Fly operation
+        run: |
+          node scripts/deploy-guard.cjs context
+          echo "FLYCTL_VERSION=$(jq -r .flyctlVersion scripts/deploy-target.json)" >> "$GITHUB_ENV"
 
       - uses: actions/setup-node@v5
         with:
@@ -40,42 +44,29 @@ jobs:
       - name: Read the app's name
         run: |
           name=$(jq -r .name app.json)
+          [ "$name" = "kanji-study" ] || exit 1
           echo "APP=$name-dan" >> "$GITHUB_ENV"
           echo "The Fly app is $name-dan."
 
       - uses: superfly/flyctl-actions/setup-flyctl@master
+        with:
+          version: ${{ env.FLYCTL_VERSION }}
 
       - name: Refuse to run without the secrets
         env:
           APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
           missing=""
           [ -z "$FLY_API_TOKEN" ] && missing="$missing FLY_API_TOKEN"
           [ -z "$APP_PASSWORD" ] && missing="$missing APP_PASSWORD"
-          [ -z "$OPENROUTER_API_KEY" ] && missing="$missing OPENROUTER_API_KEY"
           if [ -n "$missing" ]; then
             echo "::error::Missing repository secret(s):$missing. Add them under Settings > Secrets and variables > Actions, then re-run. Nothing deployed."
             exit 1
           fi
-          echo "All three repository secrets are present: FLY_API_TOKEN, APP_PASSWORD, OPENROUTER_API_KEY."
+          echo "Required repository secrets are present: FLY_API_TOKEN, APP_PASSWORD."
 
-      - name: Create the app if it does not exist
-        run: |
-          if flyctl status --app "$APP" >/dev/null 2>&1; then
-            echo "App $APP exists."
-          else
-            echo "App $APP not found; creating it in org personal."
-            flyctl apps create "$APP" --org personal
-          fi
-
-      - name: Create the volume if there is none
-        run: |
-          if flyctl volumes list --app "$APP" | grep -q kanji_data; then
-            echo "Volume kanji_data exists."
-          else
-            flyctl volumes create kanji_data --region nrt --size 1 --app "$APP" --yes
-          fi
+      - name: Require existing healthy machine, attached volume and deployed secret names
+        run: node scripts/deploy-guard.cjs inventory
 
       # The passphrase follows the repository secret on every deploy, so
       # changing APP_PASSWORD in GitHub and re-running this resets it.
@@ -86,30 +77,8 @@ jobs:
           flyctl secrets set --app "$APP" --stage "APP_PASSWORD=$APP_PASSWORD" >/dev/null
           echo "APP_PASSWORD staged from the repository secret."
 
-      # As the Hebrew reader's Deploy does: set only when Fly does not hold
-      # it yet.
-      - name: Set the OpenRouter key if it is not set yet
-        env:
-          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
-        run: |
-          if flyctl secrets list --app "$APP" 2>/dev/null | awk 'NR>1 {print $1}' | grep -qx OPENROUTER_API_KEY; then
-            echo "OPENROUTER_API_KEY already set; leaving it."
-          else
-            flyctl secrets set --app "$APP" --stage "OPENROUTER_API_KEY=$OPENROUTER_API_KEY" >/dev/null
-            echo "OPENROUTER_API_KEY staged."
-          fi
-
-      - name: Make COOKIE_SECRET once
-        run: |
-          if flyctl secrets list --app "$APP" 2>/dev/null | awk 'NR>1 {print $1}' | grep -qx COOKIE_SECRET; then
-            echo "COOKIE_SECRET already set; leaving it."
-          else
-            flyctl secrets set --app "$APP" --stage "COOKIE_SECRET=$(openssl rand -hex 32)" >/dev/null
-            echo "COOKIE_SECRET made and staged."
-          fi
-
       - name: Deploy
-        run: flyctl deploy --remote-only --app "$APP" --ha=false --env "COMMIT=${GITHUB_SHA::7}"
+        run: flyctl deploy --remote-only --app "$APP" --only-machines 8654724c923dd8 --update-only --no-public-ips --ha=false --deploy-retries 0 --env "COMMIT=${GITHUB_SHA::7}"
 
       - name: Check the alive line
         run: |
@@ -135,6 +104,7 @@ jobs:
         run: |
           base="https://$APP.fly.dev"
           jar=$(mktemp)
+          trap 'rm -f "$jar"' EXIT
           stranger=$(curl -s -o /dev/null -w '%{http_code} %{redirect_url}' "$base/status")
           echo "status page without a cookie: $stranger"
           case "$stranger" in "303 $base/login"*) ;; *) echo "::error::The status page did not send a stranger to sign-in."; exit 1 ;; esac
@@ -163,11 +133,11 @@ jobs:
           fi
           echo "Live at $base"
 
-      # The crash chain end to end: signed in the same way, POST /crash-test
-      # throws, the server reports it to Sentry (when fly.toml carries a DSN)
-      # and answers 500; Sentry files the Wall card through the Spine. It only
-      # warns: a missing crash report never fails a deploy that is live.
-      - name: Check a crash reaches Sentry
+      # At most one deliberate test POST per invocation. No automatic retry.
+      # HTTP500 is not proof of Sentry delivery; storage is checked separately.
+      # A fresh dispatch still needs fresh authorization and a once-only ledger.
+      - name: One approved crash POST (HTTP observation only)
+        id: crash_test_once
         env:
           APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
         run: |

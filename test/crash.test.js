@@ -1,4 +1,5 @@
 'use strict';
+const { deployCrashStep } = require('./helpers/deploy-crash-step.cjs');
 // Crash reporting (lib/crash.js, public/crash.js, public/sentry.min.js):
 // off with no DSN, the scrub both sides share, the pages, the bundle, the
 // /crash-test route, the deploy step, and, with a DSN pointing at a
@@ -291,11 +292,9 @@ test('with a DSN, pages carry it, and a crash reaches Sentry with its message an
   assert.match(kid.log, /Error: crash-test: kanji study reports crashes/, 'the catch still logs the error');
 });
 
-test('the deploy\'s "Check a crash reaches Sentry" step warns, never fails, when the crash test does not answer 500', () => {
+test('the deploy\'s crash_test_once HTTP observation warns, never fails, when the crash test does not answer 500', () => {
   const yml = fs.readFileSync(path.join(root, '.github', 'workflows', 'deploy.yml'), 'utf8');
-  const at = yml.indexOf('- name: Check a crash reaches Sentry');
-  assert.ok(at > yml.indexOf('- name: Sign in through the sign-in form'), 'after the sign-in step');
-  const lines = yml.slice(at).split('\n');
+  const lines = deployCrashStep(yml).split('\n');
   const from = lines.findIndex((l) => /^\s+run: \|\s*$/.test(l));
   const run = [];
   for (const l of lines.slice(from + 1)) { if (l.trim() && !l.startsWith('          ')) break; run.push(l.slice(10)); }
